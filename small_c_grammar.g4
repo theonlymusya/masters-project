@@ -1,27 +1,121 @@
 grammar small_c_grammar;
-program : function* EOF;
-function : 'int' 'main' '(' ')' block;
-statement : ifStatement | forStatement | whileStatement | returnStatement | varDeclaration | assignment ';' | expression ';' | block;
 
-block : '{' statement* '}';
+program 
+    : function* EOF
+    ;
 
-ifStatement : 'if' '(' condition ')' statement ('else' statement)?;
+function 
+    : 'int' 'main' '(' ')' block
+    ;
 
-forStatement : 'for' '(' varDeclaration condition ';' assignment ')' statement;
+statement
+    : ifStatement
+    | forStatement
+    | whileStatement
+    | returnStatement
+    | varDeclaration
+    | expression ';'
+    | block
+    ;
 
-whileStatement : 'while' '(' condition ')' statement;
+block 
+    : '{' statement* '}'
+    ;
 
-returnStatement : 'return' expression ';';
+ifStatement 
+    : 'if' '(' expression ')' statement ('else' statement)?
+    ;
 
-varDeclaration : 'int' ID ('=' expression)? ';';
+forStatement 
+    : 'for' '(' forInit ';' expression ';' expression1 ')' statement
+    ;
 
-assignment : ID '=' expression;
+forInit
+    : varDeclarationNoSemi
+    | expression
+    ;
 
-condition : expression ('<' | '>' | '==' | '!=') expression;
+whileStatement 
+    : 'while' '(' expression ')' statement
+    ;
 
-expression : ID | INT | expression ('+'|'-'|'*'|'/') expression;
+returnStatement 
+    : 'return' expression ';'
+    ;
 
-ID : [a-zA-Z_][a-zA-Z0-9_]*;
+varDeclaration 
+    : 'int' ID arrayDecl? ('=' expression)? ';'
+    ;
+
+varDeclarationNoSemi 
+    : 'int' ID arrayDecl? ('=' expression)?
+    ;
+
+arrayDecl 
+    : '[' INT ']'
+    ;
+
+// Выражения с поддержкой префиксных операторов
+
+expression 
+    : assignmentExpression
+    ;
+
+expression1
+    : assignmentExpression
+    ;
+
+assignmentExpression 
+    : conditionalExpression ( '=' assignmentExpression )?
+    ;
+
+conditionalExpression 
+    : relationalExpression
+    ;
+
+relationalExpression 
+    : additiveExpression (( '<' | '>' | '<=' | '>=' | '==' | '!=' ) additiveExpression)*
+    ;
+
+additiveExpression 
+    : additiveExpression ('+' | '-') multiplicativeExpression
+    | multiplicativeExpression
+    ;
+
+multiplicativeExpression 
+    : multiplicativeExpression ('*' | '/') unaryExpression
+    | unaryExpression
+    ;
+
+unaryExpression
+    : prefixOperator unaryExpression
+    | postfixExpression
+    ;
+
+prefixOperator
+    : '++'
+    | '--'
+    | '+'
+    | '-'
+    ;
+
+postfixExpression 
+    : primaryExpression postfixPart*
+    ;
+
+postfixPart 
+    : '[' expression ']'
+    | ('++' | '--')
+    ;
+
+primaryExpression 
+    : ID
+    | INT
+    | '(' expression ')'
+    ;
+
+ID  : [a-zA-Z_][a-zA-Z0-9_]*;
 INT : [0-9]+;
-WS : [ \t\r\n]+ -> skip;
+WS  : [ \t\r\n]+ -> skip;
+
 

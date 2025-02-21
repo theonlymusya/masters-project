@@ -1,20 +1,16 @@
 int main() {
-    int x = 10;
-    int y = 5;
-
-    if (x > y) {
-        x = x + 1;
-    } else {
-        y = y - 1;
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < m; ++j) {
+            for (int k = 0; k < l; ++k) {
+                A[i][j][k] = x[i] + y[j] + z[k];
+            }
+            B[i][j] = x[i] + y[j];
+            C[i][j] = x[j] + y[i];
+        }
     }
-
-    for (int i = 0; i < 10; i = i + 1) {
-        x = x * 2;
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < m; ++j) {
+            D[i][j] = A[i][j][0] + B[i][j] + C[i][j];
+        }
     }
-
-    while (x > 100) {
-        x = x - 5;
-    }
-
-    return x;
 }
