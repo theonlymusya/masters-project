@@ -13,6 +13,7 @@ class ASTPrinter : public small_c_grammarBaseVisitor {
             std::cout << "  ";
     }
 
+    // check
    public:
     // Главная программа
     virtual std::any visitProgram(small_c_grammarParser::ProgramContext* ctx) override {
