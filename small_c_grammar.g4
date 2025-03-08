@@ -1,7 +1,7 @@
 grammar small_c_grammar;
 
 program 
-    : function* EOF
+    : (function | statement)* EOF
     ;
 
 function 
@@ -11,8 +11,6 @@ function
 statement
     : ifStatement
     | forStatement
-    | whileStatement
-    | returnStatement
     | varDeclaration
     | expression ';'
     | block
@@ -23,7 +21,7 @@ block
     ;
 
 ifStatement 
-    : 'if' '(' expression ')' statement ('else' statement)?
+    : 'if' '(' expression ')' statement ( 'else' ifStatement | 'else' statement )?
     ;
 
 forStatement 
@@ -35,87 +33,31 @@ forInit
     | expression
     ;
 
-whileStatement 
-    : 'while' '(' expression ')' statement
-    ;
-
-returnStatement 
-    : 'return' expression ';'
-    ;
-
 varDeclaration 
-    : 'int' ID arrayDecl? ('=' expression)? ';'
+    : ('int' | 'double') ID arrayDecl? ('=' expression)? ';'
     ;
 
 varDeclarationNoSemi 
-    : 'int' ID arrayDecl? ('=' expression)?
+    : ('int' | 'double') ID arrayDecl? ('=' expression)?
     ;
 
 arrayDecl 
-    : '[' INT ']'
+    : '[' expression ']'
     ;
 
-// Выражения с поддержкой префиксных операторов
+// Выражения теперь представлены как строки для последующей проверки
 
 expression 
-    : assignmentExpression
+    : EXPRESSION_TEXT
     ;
 
 expression1
-    : assignmentExpression
+    : EXPRESSION_TEXT
     ;
 
-assignmentExpression 
-    : conditionalExpression ( '=' assignmentExpression )?
-    ;
-
-conditionalExpression 
-    : relationalExpression
-    ;
-
-relationalExpression 
-    : additiveExpression (( '<' | '>' | '<=' | '>=' | '==' | '!=' ) additiveExpression)*
-    ;
-
-additiveExpression 
-    : additiveExpression ('+' | '-') multiplicativeExpression
-    | multiplicativeExpression
-    ;
-
-multiplicativeExpression 
-    : multiplicativeExpression ('*' | '/') unaryExpression
-    | unaryExpression
-    ;
-
-unaryExpression
-    : prefixOperator unaryExpression
-    | postfixExpression
-    ;
-
-prefixOperator
-    : '++'
-    | '--'
-    | '+'
-    | '-'
-    ;
-
-postfixExpression 
-    : primaryExpression postfixPart*
-    ;
-
-postfixPart 
-    : '[' expression ']'
-    | ('++' | '--')
-    ;
-
-primaryExpression 
-    : ID
-    | INT
-    | '(' expression ')'
-    ;
+EXPRESSION_TEXT : ~[;\n]+ ;
 
 ID  : [a-zA-Z_][a-zA-Z0-9_]*;
 INT : [0-9]+;
 WS  : [ \t\r\n]+ -> skip;
-
 
