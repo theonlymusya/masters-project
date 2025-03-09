@@ -1,3 +1,4 @@
+
 EXAMPLE 0
 
 for (int i = 0; i < m; i++) {
@@ -125,3 +126,71 @@ global_iter  ij    0  1  2  3  4  src(table_n, ij)
 13           20          2        src(0, 12)      
 15           21             2     src(1, 12)     
 17           22                2  src(0, 22)
+
+EXAMPLE 4
+ПОСЛЕДОВАТЕЛЬНО-ПАРАЛЛЕЛЬНЫЙ МЕТОД СУММИРОВАНИЯ
+
+double X[K * K];
+double S[P];
+double SUM;
+
+for (int i = 0; i < P; i++) {
+    S[i] = X[K * i];
+
+    if (i < P - 1) { //i = 0
+        for (int j = 1; j < K; j++) {
+            S[i] += X[K * i + j];
+        }
+    } else { //i = 1, 2
+        for (int j = 1; j < Q; j++) {
+            S[i] += X[K * i + j];
+        }
+    }
+}
+
+SUM = S[0];
+for (int i = 1; i < P; i++) {
+    SUM += S[i];
+}
+
+Пусть P = 2, K = 2
+
+S[i] = X[K * i];
+#размерность таблица зависит от размерности переменной слева от итератора присванивания
+table (0)         S index                 
+global_iter  i    0  1  2   src(table_n, ij)
+
+0            0    0         input      
+             1       2      input 
+             2          4   input
+
+S[i] += X[K * i + j]; (1)
+S[i] = S[i] + X[K * i + j]
+
+table (1)          S index                 
+global_iter  ij    0  1  2  3  4  src(table_n, ij)
+
+             00                   input      
+             01                   src(,) 
+             02                   src(,) 
+             10                   src(,) 
+             11                   src(,) 
+             12                   src(,)
+             20                   src(,)
+             21                   src(,)
+             22                   src(,)
+
+S[i] += X[K * i + j]; (2)
+
+table (2)          vec_out index                 
+global_iter  ij    0  1  2  3  4  src(table_n, ij)
+
+             00                   input      
+             01                   src(,) 
+             02                   src(,) 
+             10                   src(,) 
+             11                   src(,) 
+             12                   src(,)
+             20                   src(,)
+             21                   src(,)
+             22                   src(,)

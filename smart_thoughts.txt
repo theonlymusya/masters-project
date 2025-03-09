@@ -872,6 +872,229 @@ void my_operation (ParentIteration parentIteration) {
 }
 
 
+// [08.03.2025] Ah shit, here we go again
+
+// ПОСЛЕДОВАТЕЛЬНО-ПАРАЛЛЕЛЬНЫЙ МЕТОД СУММИРОВАНИЯ (modified)
+
+int P = 3;
+int K = 2;
+
+double X[K * K];
+double S[P];
+double SUM;
+
+for (int i = 0; i < 100; i++)
+    X[i] = cos(i);
+
+
+for (int i = 0; i < P; i++) {
+    S[i] = X[K * i];
+    Y[i] = X[i * i];
+    p = X[i * K];
+
+    if (i < P - 1) { // i = 0, 1
+        for (int j = 1; j < K; j++) {
+            S[i] += X[K * i + j] + p;
+        }
+    } else { // i = 2
+        for (int j = 1; j < Q; j++) {
+            Y[i+j] += X[K * i + j] + S[i];
+        }
+
+}
+
+SUM = S[0];
+for (int i = 1; i < P; i++) {
+    SUM += S[i];
+}
+
+// константные значения:
+// i
+// sqrt(3)
+// cos(i)*sin(j)
+
+// зависимости:
+// X[...]
+
+//Антонов :::::: лежит слева от оператора присваивания И справа выражение, не сводящееся статически к константе 
+
+
+cos(i)*sin(j)
+
+
+
+X[i] = cos(i)*sin(j);
+
+table (0)               X index                 
+schedule_index(X)  i    0  1  2 ...   src(table_n, ij)
+0                  0    c             input      
+1                  1       с          input 
+2                  2          с       input
+
+
+class Observer {
+    Map vars {var_name -> Schedule}     
+}
+                    
+class Schedule {
+    Src find_src(int var_element_index) {
+        ...
+    }
+    
+    Map _schedule { 0 -> table0, i0, 
+                    1 -> table1, i0,
+                    2 -> table0, i1,
+                    ... }
+}
+
+class Table {
+    
+}
+
+class Src {
+    int table_index;
+    int i;
+    int j;
+    int k;
+}
+
+
+S[i] = X[K * i];
+// размерность таблица зависит от размерности переменной слева от итератора присванивания
+// тело таблицы - значения индексных выражений в каждой [] справа от оператора
+
+table (1)               S index                 
+schedule_index(S)  i    0    1    2   src(table_n, ij)
+0                  0  K*i=0           src(0, i=0)      
+4                  1         2        src(0, i=2) ij на каком индексе таблицы(0) последний раз был изменён элемент X[i] с индексом i, который мы используем в операции справа
+8                  2              4   src(0, i=4)
+//значения ij из src мы забираем из таблицы table_n: по столбцу смотрим когда последний раз было изменение (по расписанию - важно!)
+// надо иметь возможность по расписанию обращаться к таблице
+                   
+Y[i] = X[i * i];
+// лезем в последнюю таблицу переменной X
+table (2)               Y index                 
+schedule_index(Y)  i    0    1    2   src(table_n, ij)
+0                  0  i*i=0           src(0, i=0)     
+4                  1         1        src(0, i=1)
+8                  2              4   src(0, i=4)
+                      
+p = X[i * K];  
+table (3)               p index                 
+schedule_index(p)  i    0         src(table_n, ij)
+0                  0  i*K=0       src(0, i=0)      
+1                  1    2         src(0, i=2) 
+2                  2    4         src(0, i=4)
+                   
+S[i] += X[K * i + j] + p;
+//есть текстуальный предобработчик
+//define N 5 -> подставляешь вместо N 5
+//развернуть += -=
+S[i] = S[i] + X[K * i + j] + p
+
+//# делаем schedule_index --, лезем в таблицу, где это sched_idx значение лежит
+//# смотрим в таблице, изменялась ли переменная по собственному индексу
+//# если да, то это src, то продолжаем schedule_index --
+
+//константные значения определяем по отсутствию их в мапе изменяемых значений
+//мапа изменяемых знавчений состоит из переменных слева от оператора присваивания
+
+//int s[]
+ 
+//for (int j = 1; j < K; j++) {
+//    for (int j1 = 1; j < K; j++) {
+//        for (int j2 = 1; j < K; j++) {
+//            for (int j3 = 1; j < K; j++) {
+//                for (int j4 = 1; j < K; j++) {
+//                s[j] = x[j+j1+j2+j3+j4];
+//                }
+//            }
+//        }
+//    }
+//}
+
+//s[1] = x[1];
+
+//S[i] += X[K * i + 1] + p;
+//S[i] += X[K * i + 2] + p;
+//S[i] += X[K * i + 3] + p;
+
+S[i] = S[i] + X[K * i + j] + p
+
+table (4)               S index                 
+schedule_index(S)  ij   0        1    2   src(table_n, ij)
+1                  00   0+0+0             src(1, 0) + src(0, 0) + src(3, 0)    
+2                  01   0+1+0             src(4, 00) + src(0, 1) + src(3, 0)
+3                  02   0+2+0             src(4, 01) + src(0, 2) + src(3, 0)
+5                  10          1+2+0      src(1, 1) + src(0, 2) + src(3, 0)
+6                  11          1+3+0      src(4, 10) + src(0, 3) + src(3, 0)
+7                  12          1+4+0      src(4, 11) + src(0, 4) + src(3, 0)
+9                  20                     -
+10                 21                     -
+11                 22                     -
+                   
+
+Y[i+j] += X[K * i + j] + S[i];
+Y[i+j] = Y[i+j] + S[i] + X[K * i + j] 
+
+table (5)               Y index                 
+schedule_index(Y)  ij    0    1    2    3    4       src(table_n, ij)
+
+1                  00                                - (не было из-за if else)   
+2                  01                                - 
+3                  02                                -
+5                  10                                -
+6                  11                                -
+7                  12                                -
+9                  20             2+2+4              src(2, i=2) (найдено по стб i+j = 2 при schedule_idx--) 
+                                                     + src(1, i=2) (т. к. при выполнении schedule_idx-- мы лезем в таблицу 4, но по индексу 2 (столбцу 2) изменений нет и в итоге мы доходим до таблицы 1 где schedule_idx = 8)
+                                                     + src(0, i=4)
+
+10                 21                 3+2+5          const (т к Y[3] никогда не менялся и не инициализировался)
+                                                     + src(1, i=2) + src(0, i=5)
+11                 22                       4+2+6    const + src(1, i=2) + src(0, i=6)
+
+//для каждой операции выделять таблицу в соответствием со вложенностью            
+//#каждая таблица соответствует оператору присваивания
+//#каждая таблица хранит расписание изменения одной переменнтой в рамках ожной операции //, с которой ассоциируется             
+             
+// var - переменная / массив для отслеживания 
+    // schedule_index(var) - расписание изменений этой переменной
+        // table(table_n) - таблицы для каждой операции с этой переменгной и общим schedule_index(var) 
+
+class Observer {
+    Map vars {var_name -> Schedule}     
+}
+                    
+class Schedule {
+    Src find_src(int var_element_index) {
+        ...
+    }
+    
+    Map _schedule { 0 -> table0, i0, 
+                    1 -> table1, i0,
+                    2 -> table0, i1,
+                    ... }
+}
+
+class Table {
+    Row rows[];
+}
+
+class TableRow {
+    int schedule_index;
+    int iterators[];
+    int var_indices[];
+    int schedule_index;
+    int schedule_index;
+}
+
+class Src {
+    int table_index;
+    int i;
+    int j;
+    int k;
+}
 
 Составлю план разработки:
 
