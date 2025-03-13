@@ -1,6 +1,8 @@
 #include <fstream>
 #include <iostream>
+#include <sstream>  // Добавлен для корректной работы с файлами
 #include <string>
+// #include "ASTBuilder.hpp"
 #include "ASTPrinter.hpp"
 #include "antlr4-runtime.h"
 #include "small_c_grammarLexer.h"
@@ -21,8 +23,12 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
+    // Загружаем содержимое файла в строку (чтобы работало с ANTLRInputStream)
+    std::ostringstream buffer;
+    buffer << stream.rdbuf();
+    ANTLRInputStream input(buffer.str());
+
     // Создаём лексер, парсер и дерево
-    ANTLRInputStream input(stream);
     small_c_grammarLexer lexer(&input);
     CommonTokenStream tokens(&lexer);
     small_c_grammarParser parser(&tokens);
@@ -31,6 +37,19 @@ int main(int argc, const char* argv[]) {
     // Используем наш ASTPrinter
     ASTPrinter printer;
     printer.visit(tree);
+
+    // Выводим AST (ANTLR4)
+    std::cout << "\n=== AST, сгенерированное ANTLR4 ===\n";
+    std::cout << tree->toStringTree(&parser) << std::endl;
+
+    // Создаём ASTBuilder и строим ASTContext
+    // ASTBuilder builder;
+    // tree::ParseTreeWalker::DEFAULT.walk(&builder, tree);
+    // ASTContext context;
+
+    // // Выполняем код из ASTContext
+    // std::cout << "\n=== Развернутое выполнение кода ===\n";
+    // builder.context.executeInstructions();
 
     return 0;
 }

@@ -5,14 +5,13 @@ program
     ;
 
 function 
-    : 'int' 'main' '(' ')' block
+    : INT MAIN '(' ')' block
     ;
 
 statement
     : ifStatement
     | forStatement
-    | varDeclaration
-    | expression ';'
+    | varDeclaration ';'
     | block
     ;
 
@@ -21,43 +20,51 @@ block
     ;
 
 ifStatement 
-    : 'if' '(' expression ')' statement ( 'else' ifStatement | 'else' statement )?
+    : IF '(' math_expr ')' statement ( ELSE ifStatement | ELSE statement )?
     ;
 
 forStatement 
-    : 'for' '(' forInit ';' expression ';' expression1 ')' statement
+    : FOR '(' forStart? ';' forStop? ';' forStep? ')' statement
     ;
 
-forInit
-    : varDeclarationNoSemi
-    | expression
+forStart 
+    : varDeclaration
+    ;
+
+forStop 
+    : ID ( '<' | '>' | '<=' | '>=' ) math_expr
+    ;
+
+forStep 
+    : ID ( '-=' | '+=' ) math_expr 
+    | ID ( '++' | '--' )
     ;
 
 varDeclaration 
-    : ('int' | 'double') ID arrayDecl? ('=' expression)? ';'
-    ;
-
-varDeclarationNoSemi 
-    : ('int' | 'double') ID arrayDecl? ('=' expression)?
+    : (INT | DOUBLE) ID arrayDecl? ('=' math_expr)?
     ;
 
 arrayDecl 
-    : '[' expression ']'
+    : '[' math_expr ']'
     ;
 
-// Выражения теперь представлены как строки для последующей проверки
-
-expression 
+math_expr 
     : EXPRESSION_TEXT
     ;
 
-expression1
-    : EXPRESSION_TEXT
-    ;
+//
+// Лексические правила – порядок имеет значение!
+// Сначала более специфичные (ключевые слова), потом общее правило
+//
+INT      : 'int';
+DOUBLE   : 'double';
+MAIN     : 'main';
+IF       : 'if';
+ELSE     : 'else';
+FOR      : 'for';
 
-EXPRESSION_TEXT : ~[;\n]+ ;
+EXPRESSION_TEXT : ~[;\r\n]+ ;
 
-ID  : [a-zA-Z_][a-zA-Z0-9_]*;
-INT : [0-9]+;
-WS  : [ \t\r\n]+ -> skip;
-
+ID      : [a-zA-Z_][a-zA-Z0-9_]*;
+NUMBER  : [0-9]+;
+WS      : [ \t\r\n]+ -> skip;

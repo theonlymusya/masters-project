@@ -144,12 +144,14 @@ void jacobiMethod(double A[N][N], double B[N], double X[N]) {
     for (i = 0; i < N; i++) X[i] = 0;  // Начальное приближение
 
     do {
-        for (i = 0; i < N; i++) X_old[i] = X[i];
+        for (i = 0; i < N; i++)
+            X_old[i] = X[i];
 
         for (i = 0; i < N; i++) {
             double sum = B[i];
             for (j = 0; j < N; j++) {
-                if (i != j) sum -= A[i][j] * X_old[j];
+                if (i != j) 
+                    sum -= A[i][j] * X_old[j];
             }
             X[i] = sum / A[i][i];
         }
