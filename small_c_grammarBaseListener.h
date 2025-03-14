@@ -43,14 +43,53 @@ public:
   virtual void enterForStep(small_c_grammarParser::ForStepContext * /*ctx*/) override { }
   virtual void exitForStep(small_c_grammarParser::ForStepContext * /*ctx*/) override { }
 
-  virtual void enterVarDeclaration(small_c_grammarParser::VarDeclarationContext * /*ctx*/) override { }
-  virtual void exitVarDeclaration(small_c_grammarParser::VarDeclarationContext * /*ctx*/) override { }
+  virtual void enterAssignmentOp(small_c_grammarParser::AssignmentOpContext * /*ctx*/) override { }
+  virtual void exitAssignmentOp(small_c_grammarParser::AssignmentOpContext * /*ctx*/) override { }
+
+  virtual void enterDeclaration(small_c_grammarParser::DeclarationContext * /*ctx*/) override { }
+  virtual void exitDeclaration(small_c_grammarParser::DeclarationContext * /*ctx*/) override { }
+
+  virtual void enterVarName(small_c_grammarParser::VarNameContext * /*ctx*/) override { }
+  virtual void exitVarName(small_c_grammarParser::VarNameContext * /*ctx*/) override { }
 
   virtual void enterArrayDecl(small_c_grammarParser::ArrayDeclContext * /*ctx*/) override { }
   virtual void exitArrayDecl(small_c_grammarParser::ArrayDeclContext * /*ctx*/) override { }
 
-  virtual void enterMath_expr(small_c_grammarParser::Math_exprContext * /*ctx*/) override { }
-  virtual void exitMath_expr(small_c_grammarParser::Math_exprContext * /*ctx*/) override { }
+  virtual void enterIncDecOp(small_c_grammarParser::IncDecOpContext * /*ctx*/) override { }
+  virtual void exitIncDecOp(small_c_grammarParser::IncDecOpContext * /*ctx*/) override { }
+
+  virtual void enterMathExpr(small_c_grammarParser::MathExprContext * /*ctx*/) override { }
+  virtual void exitMathExpr(small_c_grammarParser::MathExprContext * /*ctx*/) override { }
+
+  virtual void enterLogicalOrExpr(small_c_grammarParser::LogicalOrExprContext * /*ctx*/) override { }
+  virtual void exitLogicalOrExpr(small_c_grammarParser::LogicalOrExprContext * /*ctx*/) override { }
+
+  virtual void enterLogicalAndExpr(small_c_grammarParser::LogicalAndExprContext * /*ctx*/) override { }
+  virtual void exitLogicalAndExpr(small_c_grammarParser::LogicalAndExprContext * /*ctx*/) override { }
+
+  virtual void enterEqualityExpr(small_c_grammarParser::EqualityExprContext * /*ctx*/) override { }
+  virtual void exitEqualityExpr(small_c_grammarParser::EqualityExprContext * /*ctx*/) override { }
+
+  virtual void enterRelationalExpr(small_c_grammarParser::RelationalExprContext * /*ctx*/) override { }
+  virtual void exitRelationalExpr(small_c_grammarParser::RelationalExprContext * /*ctx*/) override { }
+
+  virtual void enterAdditiveExpr(small_c_grammarParser::AdditiveExprContext * /*ctx*/) override { }
+  virtual void exitAdditiveExpr(small_c_grammarParser::AdditiveExprContext * /*ctx*/) override { }
+
+  virtual void enterMultiplicativeExpr(small_c_grammarParser::MultiplicativeExprContext * /*ctx*/) override { }
+  virtual void exitMultiplicativeExpr(small_c_grammarParser::MultiplicativeExprContext * /*ctx*/) override { }
+
+  virtual void enterUnaryExpr(small_c_grammarParser::UnaryExprContext * /*ctx*/) override { }
+  virtual void exitUnaryExpr(small_c_grammarParser::UnaryExprContext * /*ctx*/) override { }
+
+  virtual void enterPrimaryExpr(small_c_grammarParser::PrimaryExprContext * /*ctx*/) override { }
+  virtual void exitPrimaryExpr(small_c_grammarParser::PrimaryExprContext * /*ctx*/) override { }
+
+  virtual void enterFuncCall(small_c_grammarParser::FuncCallContext * /*ctx*/) override { }
+  virtual void exitFuncCall(small_c_grammarParser::FuncCallContext * /*ctx*/) override { }
+
+  virtual void enterFuncName(small_c_grammarParser::FuncNameContext * /*ctx*/) override { }
+  virtual void exitFuncName(small_c_grammarParser::FuncNameContext * /*ctx*/) override { }
 
 
   virtual void enterEveryRule(antlr4::ParserRuleContext * /*ctx*/) override { }

@@ -51,7 +51,15 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitVarDeclaration(small_c_grammarParser::VarDeclarationContext *ctx) override {
+  virtual std::any visitAssignmentOp(small_c_grammarParser::AssignmentOpContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitDeclaration(small_c_grammarParser::DeclarationContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitVarName(small_c_grammarParser::VarNameContext *ctx) override {
     return visitChildren(ctx);
   }
 
@@ -59,7 +67,51 @@ public:
     return visitChildren(ctx);
   }
 
-  virtual std::any visitMath_expr(small_c_grammarParser::Math_exprContext *ctx) override {
+  virtual std::any visitIncDecOp(small_c_grammarParser::IncDecOpContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitMathExpr(small_c_grammarParser::MathExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitLogicalOrExpr(small_c_grammarParser::LogicalOrExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitLogicalAndExpr(small_c_grammarParser::LogicalAndExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitEqualityExpr(small_c_grammarParser::EqualityExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitRelationalExpr(small_c_grammarParser::RelationalExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitAdditiveExpr(small_c_grammarParser::AdditiveExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitMultiplicativeExpr(small_c_grammarParser::MultiplicativeExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitUnaryExpr(small_c_grammarParser::UnaryExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitPrimaryExpr(small_c_grammarParser::PrimaryExprContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitFuncCall(small_c_grammarParser::FuncCallContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitFuncName(small_c_grammarParser::FuncNameContext *ctx) override {
     return visitChildren(ctx);
   }
 

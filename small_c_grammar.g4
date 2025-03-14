@@ -5,13 +5,14 @@ program
     ;
 
 function 
-    : INT MAIN '(' ')' block
+    : 'int' 'main' '(' ')' block
     ;
 
 statement
     : ifStatement
     | forStatement
-    | varDeclaration ';'
+    | assignmentOp ';'
+    | incDecOp ';'
     | block
     ;
 
@@ -20,51 +21,94 @@ block
     ;
 
 ifStatement 
-    : IF '(' math_expr ')' statement ( ELSE ifStatement | ELSE statement )?
+    : 'if' '(' mathExpr ')' statement ( 'else' ifStatement | 'else' statement )?
     ;
 
 forStatement 
-    : FOR '(' forStart? ';' forStop? ';' forStep? ')' statement
+    : 'for' '(' forStart? ';' forStop? ';' forStep? ')' statement
     ;
 
 forStart 
-    : varDeclaration
+    : assignmentOp
     ;
 
 forStop 
-    : ID ( '<' | '>' | '<=' | '>=' ) math_expr
+    : ID ( '<' | '>' | '<=' | '>=' ) mathExpr
     ;
 
 forStep 
-    : ID ( '-=' | '+=' ) math_expr 
-    | ID ( '++' | '--' )
+    : ID ( '-=' | '+=' ) mathExpr 
+    | incDecOp
     ;
 
-varDeclaration 
-    : (INT | DOUBLE) ID arrayDecl? ('=' math_expr)?
+assignmentOp
+    : declaration? varName ('=' mathExpr)?
+    ;
+
+declaration
+    : ('int' | 'double')
+    ;
+
+varName
+    : ID arrayDecl?
     ;
 
 arrayDecl 
-    : '[' math_expr ']'
+    : '[' mathExpr ']' ('[' mathExpr ']' )? ('[' mathExpr ']' )?
     ;
 
-math_expr 
-    : EXPRESSION_TEXT
+incDecOp
+    : ID ( '++' | '--' )
     ;
 
-//
-// Лексические правила – порядок имеет значение!
-// Сначала более специфичные (ключевые слова), потом общее правило
-//
-INT      : 'int';
-DOUBLE   : 'double';
-MAIN     : 'main';
-IF       : 'if';
-ELSE     : 'else';
-FOR      : 'for';
+mathExpr
+    : logicalOrExpr
+    ;
 
-EXPRESSION_TEXT : ~[;\r\n]+ ;
+logicalOrExpr
+    : logicalAndExpr ( '||' logicalAndExpr )*
+    ;
 
-ID      : [a-zA-Z_][a-zA-Z0-9_]*;
-NUMBER  : [0-9]+;
-WS      : [ \t\r\n]+ -> skip;
+logicalAndExpr
+    : equalityExpr ( '&&' equalityExpr )*
+    ;
+
+equalityExpr
+    : relationalExpr ( ( '==' | '!=' ) relationalExpr )*
+    ;
+
+relationalExpr
+    : additiveExpr ( ( '<' | '>' | '<=' | '>=' ) additiveExpr )*
+    ;
+
+additiveExpr
+    : multiplicativeExpr ( ( '+' | '-' ) multiplicativeExpr )*
+    ;
+
+multiplicativeExpr
+    : unaryExpr ( ( '*' | '/' | '%' ) unaryExpr )*
+    ;
+
+unaryExpr
+    : ( '!' | '+' | '-' ) unaryExpr
+    | primaryExpr
+    ;
+
+primaryExpr
+    : funcCall
+    | '(' mathExpr ')'
+    | varName
+    | NUMBER
+    ;
+
+funcCall
+    : funcName '(' ( mathExpr (',' mathExpr)* )? ')'
+    ;
+
+funcName
+    : ID ( '::' ID )*
+    ;
+
+ID : [a-zA-Z_][a-zA-Z0-9_]* ;
+NUMBER : [0-9]+ ('.' [0-9]+)? ;
+WS : [ \t\r\n]+ -> skip ;

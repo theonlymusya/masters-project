@@ -41,14 +41,53 @@ public:
   virtual void enterForStep(small_c_grammarParser::ForStepContext *ctx) = 0;
   virtual void exitForStep(small_c_grammarParser::ForStepContext *ctx) = 0;
 
-  virtual void enterVarDeclaration(small_c_grammarParser::VarDeclarationContext *ctx) = 0;
-  virtual void exitVarDeclaration(small_c_grammarParser::VarDeclarationContext *ctx) = 0;
+  virtual void enterAssignmentOp(small_c_grammarParser::AssignmentOpContext *ctx) = 0;
+  virtual void exitAssignmentOp(small_c_grammarParser::AssignmentOpContext *ctx) = 0;
+
+  virtual void enterDeclaration(small_c_grammarParser::DeclarationContext *ctx) = 0;
+  virtual void exitDeclaration(small_c_grammarParser::DeclarationContext *ctx) = 0;
+
+  virtual void enterVarName(small_c_grammarParser::VarNameContext *ctx) = 0;
+  virtual void exitVarName(small_c_grammarParser::VarNameContext *ctx) = 0;
 
   virtual void enterArrayDecl(small_c_grammarParser::ArrayDeclContext *ctx) = 0;
   virtual void exitArrayDecl(small_c_grammarParser::ArrayDeclContext *ctx) = 0;
 
-  virtual void enterMath_expr(small_c_grammarParser::Math_exprContext *ctx) = 0;
-  virtual void exitMath_expr(small_c_grammarParser::Math_exprContext *ctx) = 0;
+  virtual void enterIncDecOp(small_c_grammarParser::IncDecOpContext *ctx) = 0;
+  virtual void exitIncDecOp(small_c_grammarParser::IncDecOpContext *ctx) = 0;
+
+  virtual void enterMathExpr(small_c_grammarParser::MathExprContext *ctx) = 0;
+  virtual void exitMathExpr(small_c_grammarParser::MathExprContext *ctx) = 0;
+
+  virtual void enterLogicalOrExpr(small_c_grammarParser::LogicalOrExprContext *ctx) = 0;
+  virtual void exitLogicalOrExpr(small_c_grammarParser::LogicalOrExprContext *ctx) = 0;
+
+  virtual void enterLogicalAndExpr(small_c_grammarParser::LogicalAndExprContext *ctx) = 0;
+  virtual void exitLogicalAndExpr(small_c_grammarParser::LogicalAndExprContext *ctx) = 0;
+
+  virtual void enterEqualityExpr(small_c_grammarParser::EqualityExprContext *ctx) = 0;
+  virtual void exitEqualityExpr(small_c_grammarParser::EqualityExprContext *ctx) = 0;
+
+  virtual void enterRelationalExpr(small_c_grammarParser::RelationalExprContext *ctx) = 0;
+  virtual void exitRelationalExpr(small_c_grammarParser::RelationalExprContext *ctx) = 0;
+
+  virtual void enterAdditiveExpr(small_c_grammarParser::AdditiveExprContext *ctx) = 0;
+  virtual void exitAdditiveExpr(small_c_grammarParser::AdditiveExprContext *ctx) = 0;
+
+  virtual void enterMultiplicativeExpr(small_c_grammarParser::MultiplicativeExprContext *ctx) = 0;
+  virtual void exitMultiplicativeExpr(small_c_grammarParser::MultiplicativeExprContext *ctx) = 0;
+
+  virtual void enterUnaryExpr(small_c_grammarParser::UnaryExprContext *ctx) = 0;
+  virtual void exitUnaryExpr(small_c_grammarParser::UnaryExprContext *ctx) = 0;
+
+  virtual void enterPrimaryExpr(small_c_grammarParser::PrimaryExprContext *ctx) = 0;
+  virtual void exitPrimaryExpr(small_c_grammarParser::PrimaryExprContext *ctx) = 0;
+
+  virtual void enterFuncCall(small_c_grammarParser::FuncCallContext *ctx) = 0;
+  virtual void exitFuncCall(small_c_grammarParser::FuncCallContext *ctx) = 0;
+
+  virtual void enterFuncName(small_c_grammarParser::FuncNameContext *ctx) = 0;
+  virtual void exitFuncName(small_c_grammarParser::FuncNameContext *ctx) = 0;
 
 
 };

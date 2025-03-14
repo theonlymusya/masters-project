@@ -17,7 +17,7 @@ class ASTPrinter : public small_c_grammarBaseVisitor {
    public:
     std::any visitProgram(small_c_grammarParser::ProgramContext* ctx) override;
     std::any visitFunction(small_c_grammarParser::FunctionContext* ctx) override;
-    std::any visitVarDeclaration(small_c_grammarParser::VarDeclarationContext* ctx) override;
+    std::any visitAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) override;
     std::any visitIfStatement(small_c_grammarParser::IfStatementContext* ctx) override;
     std::any visitForStatement(small_c_grammarParser::ForStatementContext* ctx) override;
 };

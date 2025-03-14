@@ -15,11 +15,14 @@ std::any ASTPrinter::visitFunction(small_c_grammarParser::FunctionContext* ctx) 
     return nullptr;
 }
 
-std::any ASTPrinter::visitVarDeclaration(small_c_grammarParser::VarDeclarationContext* ctx) {
+std::any ASTPrinter::visitAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) {
     printIndent();
-    std::cout << "VarDeclaration: " << ctx->ID()->getText();
-    if (ctx->math_expr()) {
-        std::cout << " = " << ctx->math_expr()->getText();
+    std::cout << "AssignmentOp: ";
+    if (ctx->declaration())
+        std::cout << ctx->declaration()->getText() << " ";
+    std::cout << ctx->varName()->getText();
+    if (ctx->mathExpr()) {
+        std::cout << " = " << ctx->mathExpr()->getText();
     }
     std::cout << std::endl;
     return nullptr;
@@ -27,7 +30,7 @@ std::any ASTPrinter::visitVarDeclaration(small_c_grammarParser::VarDeclarationCo
 
 std::any ASTPrinter::visitIfStatement(small_c_grammarParser::IfStatementContext* ctx) {
     printIndent();
-    std::cout << "If condition: " << ctx->math_expr()->getText() << std::endl;
+    std::cout << "If condition: " << ctx->mathExpr()->getText() << std::endl;
     indent++;
     visit(ctx->statement(0));
     if (ctx->statement().size() > 1) {
@@ -47,17 +50,27 @@ std::any ASTPrinter::visitForStatement(small_c_grammarParser::ForStatementContex
     indent++;
 
     printIndent();
-    std::cout << "Initialization: " << ctx->forStart()->varDeclaration()->getText() << std::endl;
+    std::cout << "Initialization: ";
+    if (ctx->forStart()->assignmentOp()->declaration())
+        std::cout << ctx->forStart()->assignmentOp()->declaration()->getText() << " ";
+    std::cout << ctx->forStart()->assignmentOp()->varName()->getText();
+    if (ctx->forStart()->assignmentOp()->mathExpr()) {
+        std::cout << " = " << ctx->forStart()->assignmentOp()->mathExpr()->getText();
+    }
+    std::cout << std::endl;
 
     printIndent();
     std::cout << "Condition: " << ctx->forStop()->ID()->getText() << " "
-              << ctx->forStop()->children[1]->getText() << " " << ctx->forStop()->math_expr()->getText()
+              << ctx->forStop()->children[1]->getText() << " " << ctx->forStop()->mathExpr()->getText()
               << std::endl;
 
     printIndent();
-    if (ctx->forStep()->math_expr()) {
+    std::cout << "Step: ";
+    if (ctx->forStep()->incDecOp()) {
+        std::cout << ctx->forStep()->incDecOp()->getText() << ::std::endl;
+    } else if (ctx->forStep()->mathExpr()) {
         std::cout << "Increment: " << ctx->forStep()->ID()->getText() << " "
-                  << ctx->forStep()->children[1]->getText() << " " << ctx->forStep()->math_expr()->getText()
+                  << ctx->forStep()->children[1]->getText() << " " << ctx->forStep()->mathExpr()->getText()
                   << std::endl;
     } else {
         std::cout << "Increment: " << ctx->forStep()->ID()->getText() << " "
