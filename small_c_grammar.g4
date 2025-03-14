@@ -37,7 +37,7 @@ forStop
     ;
 
 forStep 
-    : ID ( '-=' | '+=' ) mathExpr 
+    : ID ( '-=' | '+=' | '/=' | '%=') mathExpr 
     | incDecOp
     ;
 

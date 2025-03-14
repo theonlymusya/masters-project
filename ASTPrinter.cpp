@@ -65,7 +65,7 @@ std::any ASTPrinter::visitForStatement(small_c_grammarParser::ForStatementContex
               << std::endl;
 
     printIndent();
-    std::cout << "Step: ";
+    std::cout << "Updation: ";
     if (ctx->forStep()->incDecOp()) {
         std::cout << ctx->forStep()->incDecOp()->getText() << ::std::endl;
     } else if (ctx->forStep()->mathExpr()) {

@@ -61,18 +61,18 @@ void small_c_grammarParserInitialize() {
     },
     std::vector<std::string>{
       "", "'int'", "'main'", "'('", "')'", "';'", "'{'", "'}'", "'if'", 
-      "'else'", "'for'", "'<'", "'>'", "'<='", "'>='", "'-='", "'+='", "'='", 
-      "'double'", "'['", "']'", "'++'", "'--'", "'||'", "'&&'", "'=='", 
-      "'!='", "'+'", "'-'", "'*'", "'/'", "'%'", "'!'", "','", "'::'"
+      "'else'", "'for'", "'<'", "'>'", "'<='", "'>='", "'-='", "'+='", "'/='", 
+      "'%='", "'='", "'double'", "'['", "']'", "'++'", "'--'", "'||'", "'&&'", 
+      "'=='", "'!='", "'+'", "'-'", "'*'", "'/'", "'%'", "'!'", "','", "'::'"
     },
     std::vector<std::string>{
       "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
       "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
-      "", "ID", "NUMBER", "WS"
+      "", "", "", "ID", "NUMBER", "WS"
     }
   );
   static const int32_t serializedATNSegment[] = {
-  	4,1,37,243,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
+  	4,1,39,243,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
   	7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,
   	14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,7,20,2,21,7,
   	21,2,22,7,22,2,23,7,23,2,24,7,24,1,0,1,0,5,0,53,8,0,10,0,12,0,56,9,0,
@@ -91,8 +91,8 @@ void small_c_grammarParserInitialize() {
   	22,3,22,219,8,22,1,23,1,23,1,23,1,23,1,23,5,23,226,8,23,10,23,12,23,229,
   	9,23,3,23,231,8,23,1,23,1,23,1,24,1,24,1,24,5,24,238,8,24,10,24,12,24,
   	241,9,24,1,24,0,0,25,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,
-  	36,38,40,42,44,46,48,0,8,1,0,11,14,1,0,15,16,2,0,1,1,18,18,1,0,21,22,
-  	1,0,25,26,1,0,27,28,1,0,29,31,2,0,27,28,32,32,248,0,54,1,0,0,0,2,59,1,
+  	36,38,40,42,44,46,48,0,8,1,0,11,14,1,0,15,18,2,0,1,1,20,20,1,0,23,24,
+  	1,0,27,28,1,0,29,30,1,0,31,33,2,0,29,30,34,34,248,0,54,1,0,0,0,2,59,1,
   	0,0,0,4,74,1,0,0,0,6,76,1,0,0,0,8,85,1,0,0,0,10,96,1,0,0,0,12,112,1,0,
   	0,0,14,114,1,0,0,0,16,122,1,0,0,0,18,125,1,0,0,0,20,132,1,0,0,0,22,134,
   	1,0,0,0,24,138,1,0,0,0,26,153,1,0,0,0,28,156,1,0,0,0,30,158,1,0,0,0,32,
@@ -113,22 +113,22 @@ void small_c_grammarParserInitialize() {
   	0,100,101,1,0,0,0,101,103,5,5,0,0,102,104,3,14,7,0,103,102,1,0,0,0,103,
   	104,1,0,0,0,104,105,1,0,0,0,105,107,5,5,0,0,106,108,3,16,8,0,107,106,
   	1,0,0,0,107,108,1,0,0,0,108,109,1,0,0,0,109,110,5,4,0,0,110,111,3,4,2,
-  	0,111,11,1,0,0,0,112,113,3,18,9,0,113,13,1,0,0,0,114,115,5,35,0,0,115,
-  	116,7,0,0,0,116,117,3,28,14,0,117,15,1,0,0,0,118,119,5,35,0,0,119,120,
+  	0,111,11,1,0,0,0,112,113,3,18,9,0,113,13,1,0,0,0,114,115,5,37,0,0,115,
+  	116,7,0,0,0,116,117,3,28,14,0,117,15,1,0,0,0,118,119,5,37,0,0,119,120,
   	7,1,0,0,120,123,3,28,14,0,121,123,3,26,13,0,122,118,1,0,0,0,122,121,1,
   	0,0,0,123,17,1,0,0,0,124,126,3,20,10,0,125,124,1,0,0,0,125,126,1,0,0,
-  	0,126,127,1,0,0,0,127,130,3,22,11,0,128,129,5,17,0,0,129,131,3,28,14,
+  	0,126,127,1,0,0,0,127,130,3,22,11,0,128,129,5,19,0,0,129,131,3,28,14,
   	0,130,128,1,0,0,0,130,131,1,0,0,0,131,19,1,0,0,0,132,133,7,2,0,0,133,
-  	21,1,0,0,0,134,136,5,35,0,0,135,137,3,24,12,0,136,135,1,0,0,0,136,137,
-  	1,0,0,0,137,23,1,0,0,0,138,139,5,19,0,0,139,140,3,28,14,0,140,145,5,20,
-  	0,0,141,142,5,19,0,0,142,143,3,28,14,0,143,144,5,20,0,0,144,146,1,0,0,
-  	0,145,141,1,0,0,0,145,146,1,0,0,0,146,151,1,0,0,0,147,148,5,19,0,0,148,
-  	149,3,28,14,0,149,150,5,20,0,0,150,152,1,0,0,0,151,147,1,0,0,0,151,152,
-  	1,0,0,0,152,25,1,0,0,0,153,154,5,35,0,0,154,155,7,3,0,0,155,27,1,0,0,
-  	0,156,157,3,30,15,0,157,29,1,0,0,0,158,163,3,32,16,0,159,160,5,23,0,0,
+  	21,1,0,0,0,134,136,5,37,0,0,135,137,3,24,12,0,136,135,1,0,0,0,136,137,
+  	1,0,0,0,137,23,1,0,0,0,138,139,5,21,0,0,139,140,3,28,14,0,140,145,5,22,
+  	0,0,141,142,5,21,0,0,142,143,3,28,14,0,143,144,5,22,0,0,144,146,1,0,0,
+  	0,145,141,1,0,0,0,145,146,1,0,0,0,146,151,1,0,0,0,147,148,5,21,0,0,148,
+  	149,3,28,14,0,149,150,5,22,0,0,150,152,1,0,0,0,151,147,1,0,0,0,151,152,
+  	1,0,0,0,152,25,1,0,0,0,153,154,5,37,0,0,154,155,7,3,0,0,155,27,1,0,0,
+  	0,156,157,3,30,15,0,157,29,1,0,0,0,158,163,3,32,16,0,159,160,5,25,0,0,
   	160,162,3,32,16,0,161,159,1,0,0,0,162,165,1,0,0,0,163,161,1,0,0,0,163,
   	164,1,0,0,0,164,31,1,0,0,0,165,163,1,0,0,0,166,171,3,34,17,0,167,168,
-  	5,24,0,0,168,170,3,34,17,0,169,167,1,0,0,0,170,173,1,0,0,0,171,169,1,
+  	5,26,0,0,168,170,3,34,17,0,169,167,1,0,0,0,170,173,1,0,0,0,171,169,1,
   	0,0,0,171,172,1,0,0,0,172,33,1,0,0,0,173,171,1,0,0,0,174,179,3,36,18,
   	0,175,176,7,4,0,0,176,178,3,36,18,0,177,175,1,0,0,0,178,181,1,0,0,0,179,
   	177,1,0,0,0,179,180,1,0,0,0,180,35,1,0,0,0,181,179,1,0,0,0,182,187,3,
@@ -141,12 +141,12 @@ void small_c_grammarParserInitialize() {
   	1,0,0,0,206,207,7,7,0,0,207,210,3,42,21,0,208,210,3,44,22,0,209,206,1,
   	0,0,0,209,208,1,0,0,0,210,43,1,0,0,0,211,219,3,46,23,0,212,213,5,3,0,
   	0,213,214,3,28,14,0,214,215,5,4,0,0,215,219,1,0,0,0,216,219,3,22,11,0,
-  	217,219,5,36,0,0,218,211,1,0,0,0,218,212,1,0,0,0,218,216,1,0,0,0,218,
+  	217,219,5,38,0,0,218,211,1,0,0,0,218,212,1,0,0,0,218,216,1,0,0,0,218,
   	217,1,0,0,0,219,45,1,0,0,0,220,221,3,48,24,0,221,230,5,3,0,0,222,227,
-  	3,28,14,0,223,224,5,33,0,0,224,226,3,28,14,0,225,223,1,0,0,0,226,229,
+  	3,28,14,0,223,224,5,35,0,0,224,226,3,28,14,0,225,223,1,0,0,0,226,229,
   	1,0,0,0,227,225,1,0,0,0,227,228,1,0,0,0,228,231,1,0,0,0,229,227,1,0,0,
   	0,230,222,1,0,0,0,230,231,1,0,0,0,231,232,1,0,0,0,232,233,5,4,0,0,233,
-  	47,1,0,0,0,234,239,5,35,0,0,235,236,5,34,0,0,236,238,5,35,0,0,237,235,
+  	47,1,0,0,0,234,239,5,37,0,0,235,236,5,36,0,0,236,238,5,37,0,0,237,235,
   	1,0,0,0,238,241,1,0,0,0,239,237,1,0,0,0,239,240,1,0,0,0,240,49,1,0,0,
   	0,241,239,1,0,0,0,25,52,54,74,80,94,99,103,107,122,125,130,136,145,151,
   	163,171,179,187,195,203,209,218,227,230,239
@@ -267,7 +267,7 @@ small_c_grammarParser::ProgramContext* small_c_grammarParser::program() {
     _errHandler->sync(this);
     _la = _input->LA(1);
     while ((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 34360001858) != 0)) {
+      ((1ULL << _la) & 137440003394) != 0)) {
       setState(52);
       _errHandler->sync(this);
       switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 0, _ctx)) {
@@ -550,7 +550,7 @@ small_c_grammarParser::BlockContext* small_c_grammarParser::block() {
     _errHandler->sync(this);
     _la = _input->LA(1);
     while ((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 34360001858) != 0)) {
+      ((1ULL << _la) & 137440003394) != 0)) {
       setState(77);
       statement();
       setState(82);
@@ -744,7 +744,7 @@ small_c_grammarParser::ForStatementContext* small_c_grammarParser::forStatement(
 
     _la = _input->LA(1);
     if ((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 34360000514) != 0)) {
+      ((1ULL << _la) & 137440002050) != 0)) {
       setState(98);
       forStart();
     }
@@ -987,9 +987,8 @@ small_c_grammarParser::ForStepContext* small_c_grammarParser::forStep() {
       match(small_c_grammarParser::ID);
       setState(119);
       _la = _input->LA(1);
-      if (!(_la == small_c_grammarParser::T__14
-
-      || _la == small_c_grammarParser::T__15)) {
+      if (!((((_la & ~ 0x3fULL) == 0) &&
+        ((1ULL << _la) & 491520) != 0))) {
       _errHandler->recoverInline(this);
       }
       else {
@@ -1085,7 +1084,7 @@ small_c_grammarParser::AssignmentOpContext* small_c_grammarParser::assignmentOp(
     _la = _input->LA(1);
     if (_la == small_c_grammarParser::T__0
 
-    || _la == small_c_grammarParser::T__17) {
+    || _la == small_c_grammarParser::T__19) {
       setState(124);
       declaration();
     }
@@ -1095,9 +1094,9 @@ small_c_grammarParser::AssignmentOpContext* small_c_grammarParser::assignmentOp(
     _errHandler->sync(this);
 
     _la = _input->LA(1);
-    if (_la == small_c_grammarParser::T__16) {
+    if (_la == small_c_grammarParser::T__18) {
       setState(128);
-      match(small_c_grammarParser::T__16);
+      match(small_c_grammarParser::T__18);
       setState(129);
       mathExpr();
     }
@@ -1161,7 +1160,7 @@ small_c_grammarParser::DeclarationContext* small_c_grammarParser::declaration() 
     _la = _input->LA(1);
     if (!(_la == small_c_grammarParser::T__0
 
-    || _la == small_c_grammarParser::T__17)) {
+    || _la == small_c_grammarParser::T__19)) {
     _errHandler->recoverInline(this);
     }
     else {
@@ -1238,7 +1237,7 @@ small_c_grammarParser::VarNameContext* small_c_grammarParser::varName() {
     _errHandler->sync(this);
 
     _la = _input->LA(1);
-    if (_la == small_c_grammarParser::T__18) {
+    if (_la == small_c_grammarParser::T__20) {
       setState(135);
       arrayDecl();
     }
@@ -1307,22 +1306,22 @@ small_c_grammarParser::ArrayDeclContext* small_c_grammarParser::arrayDecl() {
   try {
     enterOuterAlt(_localctx, 1);
     setState(138);
-    match(small_c_grammarParser::T__18);
+    match(small_c_grammarParser::T__20);
     setState(139);
     mathExpr();
     setState(140);
-    match(small_c_grammarParser::T__19);
+    match(small_c_grammarParser::T__21);
     setState(145);
     _errHandler->sync(this);
 
     switch (getInterpreter<atn::ParserATNSimulator>()->adaptivePredict(_input, 12, _ctx)) {
     case 1: {
       setState(141);
-      match(small_c_grammarParser::T__18);
+      match(small_c_grammarParser::T__20);
       setState(142);
       mathExpr();
       setState(143);
-      match(small_c_grammarParser::T__19);
+      match(small_c_grammarParser::T__21);
       break;
     }
 
@@ -1333,13 +1332,13 @@ small_c_grammarParser::ArrayDeclContext* small_c_grammarParser::arrayDecl() {
     _errHandler->sync(this);
 
     _la = _input->LA(1);
-    if (_la == small_c_grammarParser::T__18) {
+    if (_la == small_c_grammarParser::T__20) {
       setState(147);
-      match(small_c_grammarParser::T__18);
+      match(small_c_grammarParser::T__20);
       setState(148);
       mathExpr();
       setState(149);
-      match(small_c_grammarParser::T__19);
+      match(small_c_grammarParser::T__21);
     }
    
   }
@@ -1405,9 +1404,9 @@ small_c_grammarParser::IncDecOpContext* small_c_grammarParser::incDecOp() {
     match(small_c_grammarParser::ID);
     setState(154);
     _la = _input->LA(1);
-    if (!(_la == small_c_grammarParser::T__20
+    if (!(_la == small_c_grammarParser::T__22
 
-    || _la == small_c_grammarParser::T__21)) {
+    || _la == small_c_grammarParser::T__23)) {
     _errHandler->recoverInline(this);
     }
     else {
@@ -1544,9 +1543,9 @@ small_c_grammarParser::LogicalOrExprContext* small_c_grammarParser::logicalOrExp
     setState(163);
     _errHandler->sync(this);
     _la = _input->LA(1);
-    while (_la == small_c_grammarParser::T__22) {
+    while (_la == small_c_grammarParser::T__24) {
       setState(159);
-      match(small_c_grammarParser::T__22);
+      match(small_c_grammarParser::T__24);
       setState(160);
       logicalAndExpr();
       setState(165);
@@ -1622,9 +1621,9 @@ small_c_grammarParser::LogicalAndExprContext* small_c_grammarParser::logicalAndE
     setState(171);
     _errHandler->sync(this);
     _la = _input->LA(1);
-    while (_la == small_c_grammarParser::T__23) {
+    while (_la == small_c_grammarParser::T__25) {
       setState(167);
-      match(small_c_grammarParser::T__23);
+      match(small_c_grammarParser::T__25);
       setState(168);
       equalityExpr();
       setState(173);
@@ -1700,14 +1699,14 @@ small_c_grammarParser::EqualityExprContext* small_c_grammarParser::equalityExpr(
     setState(179);
     _errHandler->sync(this);
     _la = _input->LA(1);
-    while (_la == small_c_grammarParser::T__24
+    while (_la == small_c_grammarParser::T__26
 
-    || _la == small_c_grammarParser::T__25) {
+    || _la == small_c_grammarParser::T__27) {
       setState(175);
       _la = _input->LA(1);
-      if (!(_la == small_c_grammarParser::T__24
+      if (!(_la == small_c_grammarParser::T__26
 
-      || _la == small_c_grammarParser::T__25)) {
+      || _la == small_c_grammarParser::T__27)) {
       _errHandler->recoverInline(this);
       }
       else {
@@ -1876,14 +1875,14 @@ small_c_grammarParser::AdditiveExprContext* small_c_grammarParser::additiveExpr(
     setState(195);
     _errHandler->sync(this);
     _la = _input->LA(1);
-    while (_la == small_c_grammarParser::T__26
+    while (_la == small_c_grammarParser::T__28
 
-    || _la == small_c_grammarParser::T__27) {
+    || _la == small_c_grammarParser::T__29) {
       setState(191);
       _la = _input->LA(1);
-      if (!(_la == small_c_grammarParser::T__26
+      if (!(_la == small_c_grammarParser::T__28
 
-      || _la == small_c_grammarParser::T__27)) {
+      || _la == small_c_grammarParser::T__29)) {
       _errHandler->recoverInline(this);
       }
       else {
@@ -1966,11 +1965,11 @@ small_c_grammarParser::MultiplicativeExprContext* small_c_grammarParser::multipl
     _errHandler->sync(this);
     _la = _input->LA(1);
     while ((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 3758096384) != 0)) {
+      ((1ULL << _la) & 15032385536) != 0)) {
       setState(199);
       _la = _input->LA(1);
       if (!((((_la & ~ 0x3fULL) == 0) &&
-        ((1ULL << _la) & 3758096384) != 0))) {
+        ((1ULL << _la) & 15032385536) != 0))) {
       _errHandler->recoverInline(this);
       }
       else {
@@ -2049,14 +2048,14 @@ small_c_grammarParser::UnaryExprContext* small_c_grammarParser::unaryExpr() {
     setState(209);
     _errHandler->sync(this);
     switch (_input->LA(1)) {
-      case small_c_grammarParser::T__26:
-      case small_c_grammarParser::T__27:
-      case small_c_grammarParser::T__31: {
+      case small_c_grammarParser::T__28:
+      case small_c_grammarParser::T__29:
+      case small_c_grammarParser::T__33: {
         enterOuterAlt(_localctx, 1);
         setState(206);
         _la = _input->LA(1);
         if (!((((_la & ~ 0x3fULL) == 0) &&
-          ((1ULL << _la) & 4697620480) != 0))) {
+          ((1ULL << _la) & 18790481920) != 0))) {
         _errHandler->recoverInline(this);
         }
         else {
@@ -2265,15 +2264,15 @@ small_c_grammarParser::FuncCallContext* small_c_grammarParser::funcCall() {
 
     _la = _input->LA(1);
     if ((((_la & ~ 0x3fULL) == 0) &&
-      ((1ULL << _la) & 107776835592) != 0)) {
+      ((1ULL << _la) & 431107342344) != 0)) {
       setState(222);
       mathExpr();
       setState(227);
       _errHandler->sync(this);
       _la = _input->LA(1);
-      while (_la == small_c_grammarParser::T__32) {
+      while (_la == small_c_grammarParser::T__34) {
         setState(223);
-        match(small_c_grammarParser::T__32);
+        match(small_c_grammarParser::T__34);
         setState(224);
         mathExpr();
         setState(229);
@@ -2352,9 +2351,9 @@ small_c_grammarParser::FuncNameContext* small_c_grammarParser::funcName() {
     setState(239);
     _errHandler->sync(this);
     _la = _input->LA(1);
-    while (_la == small_c_grammarParser::T__33) {
+    while (_la == small_c_grammarParser::T__35) {
       setState(235);
-      match(small_c_grammarParser::T__33);
+      match(small_c_grammarParser::T__35);
       setState(236);
       match(small_c_grammarParser::ID);
       setState(241);

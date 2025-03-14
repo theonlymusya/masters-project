@@ -4,6 +4,7 @@
 #include <string>
 // #include "ASTBuilder.hpp"
 #include "ASTPrinter.hpp"
+#include "CPreprocess.hpp"
 #include "antlr4-runtime.h"
 #include "small_c_grammarLexer.h"
 #include "small_c_grammarParser.h"
@@ -16,10 +17,17 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
+    std::string input_filename = std::string(argv[1]);
+
+    CPreprocessor preprocessor(input_filename);
+    preprocessor.expand_compound_assignments();
+    preprocessor.print_file();
+
     // Открываем входной файл
-    std::ifstream stream(argv[1]);
+    std::string file = preprocessor.get_output_file();
+    std::ifstream stream(file);
     if (!stream) {
-        std::cerr << "Error opening file: " << argv[1] << std::endl;
+        std::cerr << "Error opening file: " << file << std::endl;
         return 1;
     }
 
