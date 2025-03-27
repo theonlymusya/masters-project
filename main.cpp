@@ -1,8 +1,9 @@
 #include <fstream>
 #include <iostream>
-#include <sstream>  // Добавлен для корректной работы с файлами
+#include <sstream>
 #include <string>
-// #include "ASTBuilder.hpp"
+#include "ASTBuilder.hpp"
+#include "ASTContext.hpp"
 #include "ASTPrinter.hpp"
 #include "CPreprocess.hpp"
 #include "antlr4-runtime.h"
@@ -23,7 +24,6 @@ int main(int argc, const char* argv[]) {
     preprocessor.expand_compound_assignments();
     preprocessor.print_file();
 
-    // Открываем входной файл
     std::string file = preprocessor.get_output_file();
     std::ifstream stream(file);
     if (!stream) {
@@ -31,33 +31,27 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    // Загружаем содержимое файла в строку (чтобы работало с ANTLRInputStream)
     std::ostringstream buffer;
     buffer << stream.rdbuf();
     ANTLRInputStream input(buffer.str());
 
-    // Создаём лексер, парсер и дерево
     small_c_grammarLexer lexer(&input);
     CommonTokenStream tokens(&lexer);
     small_c_grammarParser parser(&tokens);
     tree::ParseTree* tree = parser.program();
 
-    // Используем наш ASTPrinter
     ASTPrinter printer;
     printer.visit(tree);
 
-    // Выводим AST (ANTLR4)
     std::cout << "\n=== AST, сгенерированное ANTLR4 ===\n";
     std::cout << tree->toStringTree(&parser) << std::endl;
 
-    // Создаём ASTBuilder и строим ASTContext
-    // ASTBuilder builder;
-    // tree::ParseTreeWalker::DEFAULT.walk(&builder, tree);
-    // ASTContext context;
+    ASTBuilder builder;
+    tree::ParseTreeWalker::DEFAULT.walk(&builder, tree);
+    ASTContext context = builder.context;
 
-    // // Выполняем код из ASTContext
-    // std::cout << "\n=== Развернутое выполнение кода ===\n";
-    // builder.context.executeInstructions();
+    std::cout << "\n=== Развернутое выполнение кода ===\n";
+    context.executeInstructions();
 
     return 0;
 }
