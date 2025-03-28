@@ -2,9 +2,23 @@
 #include <cstdlib>
 #include <iostream>
 
-// Вспомогательная функция для создания инструкции типа ASSIGNMENT из строкового выражения.
+// вспомогательная функция для создания инструкции ASSIGNMENT из строкового выражения
 Instruction makeAssignmentInstruction(const std::string& expr) {
     return Instruction{InstructionType::ASSIGNMENT, expr};
+}
+
+// вспомогательная функция для открытия блока
+void ASTBuilder::beginBlock() {
+    blockStack.push({});
+    astContext.pushScope();
+}
+
+// вспомогательная функция для закрытия блока
+std::vector<Instruction> ASTBuilder::endBlock() {
+    auto block = blockStack.top();
+    blockStack.pop();
+    astContext.popScope();
+    return block;
 }
 
 ASTBuilder::ASTBuilder() {
@@ -15,7 +29,7 @@ ASTBuilder::ASTBuilder() {
 ASTBuilder::~ASTBuilder() {}
 
 ASTContext& ASTBuilder::getASTContext() {
-    // По завершении сборки, добавляем накопленные верхнеуровневые инструкции в ASTContext.
+    // по завершении сборки добавляем накопленные верхнеуровневые инструкции в ASTContext
     if (!blockStack.empty()) {
         astContext.addBlock(blockStack.top());
     }
@@ -53,16 +67,13 @@ void ASTBuilder::exitFunction(small_c_grammarParser::FunctionContext* ctx) {
 
 // --- Блок ---
 void ASTBuilder::enterBlock(small_c_grammarParser::BlockContext* ctx) {
-    blockStack.push(std::vector<Instruction>());
-    astContext.pushScope();
+    beginBlock();
 }
 
 void ASTBuilder::exitBlock(small_c_grammarParser::BlockContext* ctx) {
-    auto blk = blockStack.top();
-    blockStack.pop();
-    // Добавляем блок как отдельную инструкцию.
-    addInstruction(Instruction{InstructionType::BLOCK, blk});
-    astContext.popScope();
+    auto block = endBlock();
+    // добавляем блок как отдельную инструкцию
+    addInstruction(Instruction{InstructionType::BLOCK, block});
 }
 
 // --- AssignmentOp (объявление и/или присваивание) ---
@@ -75,16 +86,22 @@ void ASTBuilder::enterAssignmentOp(small_c_grammarParser::AssignmentOpContext* c
         if (ctx->mathExpr()) {
             value = ctx->mathExpr()->getText();
         }
+        std::vector<int> dimensions;
         bool isArray = (ctx->varName()->arrayDecl() != nullptr);
-        int arraySize = 0;
         if (isArray) {
-            try {
-                arraySize = std::stoi(ctx->varName()->arrayDecl()->mathExpr()->getText());
-            } catch (...) {
-                std::cerr << "Ошибка преобразования размера массива для переменной " << varName << std::endl;
+            auto exprs = ctx->varName()->arrayDecl()->mathExpr();
+            for (auto* expr : exprs) {
+                try {
+                    dimensions.push_back(std::stoi(expr->getText()));
+                } catch (...) {
+                    std::cerr << "Ошибка преобразования размерности массива: " << expr->getText()
+                              << std::endl;
+                    dimensions.push_back(0);  // безопасное значение по умолчанию
+                }
             }
         }
-        astContext.addVariable(varName, varType, value, isArray, arraySize);
+
+        astContext.addVariable(varName, varType, value, isArray, dimensions);
     }
     // Начинаем формировать строку выражения.
     currentExpr = ctx->getText();
@@ -102,91 +119,99 @@ void ASTBuilder::enterIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) {
 }
 
 void ASTBuilder::exitIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) {
-    addInstruction(makeAssignmentInstruction(currentExpr));
+    if (!insideForHeader) {
+        addInstruction(makeAssignmentInstruction(currentExpr));
+    }
     currentExpr.clear();
 }
 
-// --- ifStatement с поддержкой else-if и else ---
 void ASTBuilder::enterIfStatement(small_c_grammarParser::IfStatementContext* ctx) {
-    // Создаём новый узел if.
     IfNode newIf;
-    newIf.condition = ctx->mathExpr()->getText();
+    newIf.condition = ctx->cond->getText();
+
     ifStack.push(newIf);
-    // Для then-ветки создаём новый блок.
-    blockStack.push(std::vector<Instruction>());
-    astContext.pushScope();
+    beginBlock();
+}
+
+void ASTBuilder::handleElifChain(small_c_grammarParser::ElifChainContext* ctx, IfNode& node) {
+    for (size_t i = 0; i < ctx->elifCond.size(); ++i) {
+        std::string cond = ctx->elifCond[i]->getText();
+
+        beginBlock();
+
+        antlr4::tree::ParseTreeWalker::DEFAULT.walk(this, ctx->statement(i));
+
+        auto block = endBlock();
+
+        node.elseIfBranches.push_back(ElseIf{cond, block});
+    }
+}
+
+void ASTBuilder::handleElseBranch(small_c_grammarParser::ElseBranchContext* ctx, IfNode& node) {
+    beginBlock();
+
+    antlr4::tree::ParseTreeWalker::DEFAULT.walk(this, ctx->statement());
+
+    node.elseBlock = endBlock();
 }
 
 void ASTBuilder::exitIfStatement(small_c_grammarParser::IfStatementContext* ctx) {
-    // Завершаем сбор then-блока.
-    auto thenBlock = blockStack.top();
-    blockStack.pop();
-    astContext.popScope();
-
-    IfNode currentIf = ifStack.top();
+    auto currentIf = ifStack.top();
     ifStack.pop();
+
+    auto thenBlock = endBlock();
     currentIf.thenBlock = thenBlock;
 
-    // Если есть ветка else (или else if) – второй потомок statement.
-    if (ctx->statement().size() > 1) {
-        std::string elseText = ctx->statement(1)->getText();
-        // Если текст начинается с "if", считаем это веткой else-if.
-        if (elseText.substr(0, 2) == "if") {
-            // Здесь для простоты добавляем ветку else-if с условием и пустым телом.
-            // В полноценном решении можно рекурсивно объединять вложенные if.
-            currentIf.elseIfBranches.push_back({elseText, {}});
-        } else {
-            // Иначе – обычный else.
-            // Для else создаём новый блок (можно использовать и getText(), если блок не задан в фигурных
-            // скобках).
-            std::vector<Instruction> elseBlock;
-            elseBlock.push_back(makeAssignmentInstruction(elseText));
-            currentIf.elseBlock = elseBlock;
-        }
+    if (ctx->elifChain()) {
+        handleElifChain(ctx->elifChain(), currentIf);
     }
-    // Формируем инструкцию if и добавляем в текущий блок.
-    Instruction ifInstr;
-    ifInstr.type = InstructionType::IF_STATEMENT;
-    IfStatement ifNode;
-    ifNode.condition = currentIf.condition;
-    ifNode.thenBlock = currentIf.thenBlock;
-    ifNode.elseIfBranches = currentIf.elseIfBranches;
-    ifNode.elseBlock = currentIf.elseBlock;
-    ifInstr.data = ifNode;
-    addInstruction(ifInstr);
+
+    if (ctx->elseBranch()) {
+        handleElseBranch(ctx->elseBranch(), currentIf);
+    }
+
+    Instruction instr;
+    instr.type = InstructionType::IF_STATEMENT;
+
+    IfStatement finalIf;
+    finalIf.condition = currentIf.condition;
+    finalIf.thenBlock = currentIf.thenBlock;
+    for (const auto& elif : currentIf.elseIfBranches) {
+        finalIf.elseIfBranches.push_back(ElseIfStatement{elif.condition, elif.block});
+    }
+    finalIf.elseBlock = currentIf.elseBlock;
+
+    instr.data = finalIf;
+    addInstruction(instr);
 }
 
 // --- forStatement ---
 void ASTBuilder::enterForStatement(small_c_grammarParser::ForStatementContext* ctx) {
-    // Для цикла for создаём блок для тела и новую область видимости.
-    loopBodyStack.push(std::vector<Instruction>());
     blockStack.push(std::vector<Instruction>());
     astContext.pushScope();
+    insideForHeader = true;
 }
 
 void ASTBuilder::exitForStatement(small_c_grammarParser::ForStatementContext* ctx) {
-    // Завершаем сбор тела цикла.
+    // Забираем тело цикла
     auto loopBody = blockStack.top();
     blockStack.pop();
     astContext.popScope();
-    if (!loopBodyStack.empty()) {
-        auto temp = loopBodyStack.top();
-        loopBodyStack.pop();
-        if (!temp.empty()) {
-            loopBody = temp;
-        }
-    }
-    // Извлекаем параметры цикла из forStart, forStop и forStep.
-    std::string varName, start, end, step;
+
+    // Считываем параметры цикла
+    std::string varName, start, end, step = "1";
+
     if (ctx->forStart() && ctx->forStart()->assignmentOp()) {
         varName = ctx->forStart()->assignmentOp()->varName()->getText();
-        if (ctx->forStart()->assignmentOp()->mathExpr())
+        if (ctx->forStart()->assignmentOp()->mathExpr()) {
             start = ctx->forStart()->assignmentOp()->mathExpr()->getText();
+        }
     }
+
     if (ctx->forStop() && ctx->forStop()->mathExpr()) {
         end = ctx->forStop()->mathExpr()->getText();
     }
-    step = "1";
+
     if (ctx->forStep()) {
         if (ctx->forStep()->mathExpr()) {
             step = ctx->forStep()->mathExpr()->getText();
@@ -195,21 +220,22 @@ void ASTBuilder::exitForStatement(small_c_grammarParser::ForStatementContext* ct
             step = (op.find("++") != std::string::npos) ? "1" : "-1";
         }
     }
-    // Формируем инструкцию цикла.
+
+    // Формируем инструкцию цикла
     Instruction loopInstr;
     loopInstr.type = InstructionType::FOR_LOOP;
-    LoopInfo loopInfo{varName, start, end, step, loopBody};
-    loopInstr.data = loopInfo;
+    loopInstr.data = LoopInfo{varName, start, end, step, loopBody};
     addInstruction(loopInstr);
+    insideForHeader = false;
 }
 
 // --- Выражения ---
 void ASTBuilder::enterMathExpr(small_c_grammarParser::MathExprContext* ctx) {
     // Для простоты буферизуем текст выражения.
-    currentExpr = ctx->getText();
+    // currentExpr = ctx->getText();
 }
 
 void ASTBuilder::exitMathExpr(small_c_grammarParser::MathExprContext* ctx) {
     // Выражения, как правило, входят в состав других инструкций, поэтому здесь просто очищаем буфер.
-    currentExpr.clear();
+    // currentExpr.clear();
 }

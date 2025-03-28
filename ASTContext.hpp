@@ -1,6 +1,4 @@
-// ASTContext.hpp
-#ifndef ASTCONTEXT_HPP
-#define ASTCONTEXT_HPP
+#pragma once
 
 #include <iostream>
 #include <optional>
@@ -13,22 +11,16 @@
 enum class InstructionType { ASSIGNMENT, FOR_LOOP, IF_STATEMENT, BLOCK };
 
 // Информация о переменной (с учётом области видимости)
-struct SymbolInfo {
+struct VarInfo {
     std::string type;
     std::optional<std::string> value;
     bool isArray;
     int arraySize;
+    std::vector<int> dimensions;
 };
 
-// Вперед объявляем структуры, используемые для представления инструкций
-struct LoopInfo;
-struct IfStatement;
-
-// Единичная инструкция представлена как тип и данные, хранимые в std::variant
-struct Instruction {
-    InstructionType type;
-    std::variant<std::string, LoopInfo, IfStatement, std::vector<Instruction>> data;
-};
+// Предварительное объявление
+struct Instruction;
 
 // Структура для представления цикла for
 struct LoopInfo {
@@ -39,13 +31,22 @@ struct LoopInfo {
     std::vector<Instruction> body;  // тело цикла – список инструкций
 };
 
-// Структура для представления конструкции if с поддержкой else-if и else
+struct ElseIfStatement {
+    std::string condition;
+    std::vector<Instruction> block;
+};
+
 struct IfStatement {
-    std::string condition;               // условие if
-    std::vector<Instruction> thenBlock;  // блок инструкций для if
-    // Вектор для веток else-if: каждая пара содержит условие и соответствующий блок
-    std::vector<std::pair<std::string, std::vector<Instruction>>> elseIfBranches;
-    std::vector<Instruction> elseBlock;  // блок инструкций для else (если есть)
+    std::string condition;
+    std::vector<Instruction> thenBlock;
+    std::vector<ElseIfStatement> elseIfBranches;
+    std::vector<Instruction> elseBlock;
+};
+
+// Единичная инструкция представлена как тип и данные, хранимые в std::variant
+struct Instruction {
+    InstructionType type;
+    std::variant<std::string, LoopInfo, IfStatement, std::vector<Instruction>> data;
 };
 
 class ASTContext {
@@ -57,7 +58,7 @@ class ASTContext {
                      const std::string& type,
                      const std::optional<std::string>& value,
                      bool isArray,
-                     int arraySize = 0);
+                     const std::vector<int>& dimensions);
     void addAssignment(const std::string& expr);
     void addLoop(const std::string& varName,
                  const std::string& start,
@@ -74,12 +75,16 @@ class ASTContext {
     // Выполнение инструкций (демонстрация обработки)
     void executeInstructions() const;
 
+    // печатка
+    void printAST() const;
+    void printInstructionList(const std::vector<Instruction>& instrs, int indent) const;
+
    private:
     // Глобальный список инструкций (топ-левел блок)
     std::vector<Instruction> instructions;
 
     // Стек таблиц символов для областей видимости
-    std::vector<std::unordered_map<std::string, SymbolInfo>> scopes;
+    std::vector<std::unordered_map<std::string, VarInfo>> scopes;
 
     // Вспомогательные методы для исполнения инструкций
     void executeInstructionList(const std::vector<Instruction>& instrs,
@@ -89,5 +94,3 @@ class ASTContext {
     std::string expandVariables(const std::string& expr,
                                 const std::unordered_map<std::string, int>& loopVars) const;
 };
-
-#endif  // ASTCONTEXT_HPP

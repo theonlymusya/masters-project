@@ -30,17 +30,32 @@ std::any ASTPrinter::visitAssignmentOp(small_c_grammarParser::AssignmentOpContex
 
 std::any ASTPrinter::visitIfStatement(small_c_grammarParser::IfStatementContext* ctx) {
     printIndent();
-    std::cout << "If condition: " << ctx->mathExpr()->getText() << std::endl;
+    std::cout << "If condition: " << ctx->cond->getText() << std::endl;
     indent++;
-    visit(ctx->statement(0));
-    if (ctx->statement().size() > 1) {
+    visit(ctx->statement());  // then-блок
+    indent--;
+
+    // Обработка цепочки else if
+    if (ctx->elifChain()) {
+        auto conds = ctx->elifChain()->elifCond;
+        auto stmts = ctx->elifChain()->statement();
+        for (size_t i = 0; i < conds.size(); ++i) {
+            printIndent();
+            std::cout << "Else if condition: " << conds[i]->getText() << std::endl;
+            indent++;
+            visit(stmts[i]);  // statement по индексу
+            indent--;
+        }
+    }
+
+    // Обработка else
+    if (ctx->elseBranch()) {
         printIndent();
         std::cout << "Else:" << std::endl;
         indent++;
-        visit(ctx->statement(1));
+        visit(ctx->elseBranch()->statement());
         indent--;
     }
-    indent--;
     return nullptr;
 }
 

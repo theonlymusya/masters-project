@@ -9,13 +9,16 @@
 #include "small_c_grammarBaseListener.h"
 #include "small_c_grammarParser.h"
 
-// Структура для представления if-оператора с поддержкой else-if и else.
+struct ElseIf {
+    std::string condition;
+    std::vector<Instruction> block;
+};
+
 struct IfNode {
-    std::string condition;               // условие if
-    std::vector<Instruction> thenBlock;  // инструкции в then-блоке
-    // Пара: условие else-if и инструкции для него.
-    std::vector<std::pair<std::string, std::vector<Instruction>>> elseIfBranches;
-    std::vector<Instruction> elseBlock;  // инструкции в else-блоке
+    std::string condition;
+    std::vector<Instruction> thenBlock;
+    std::vector<ElseIf> elseIfBranches;
+    std::vector<Instruction> elseBlock;
 };
 
 // Класс ASTBuilder наследуется от слушателя ANTLR4 и строит AST,
@@ -46,6 +49,9 @@ class ASTBuilder : public small_c_grammarBaseListener {
     void enterIfStatement(small_c_grammarParser::IfStatementContext* ctx) override;
     void exitIfStatement(small_c_grammarParser::IfStatementContext* ctx) override;
 
+    void handleElifChain(small_c_grammarParser::ElifChainContext* ctx, IfNode& node);
+    void handleElseBranch(small_c_grammarParser::ElseBranchContext* ctx, IfNode& node);
+
     void enterForStatement(small_c_grammarParser::ForStatementContext* ctx) override;
     void exitForStatement(small_c_grammarParser::ForStatementContext* ctx) override;
 
@@ -53,7 +59,8 @@ class ASTBuilder : public small_c_grammarBaseListener {
     void exitMathExpr(small_c_grammarParser::MathExprContext* ctx) override;
 
    private:
-       ASTContext astContext;
+    bool insideForHeader = false;
+    ASTContext astContext;
 
     // cтек для накопления инструкций текущего блока
     std::stack<std::vector<Instruction>> blockStack;
@@ -65,6 +72,7 @@ class ASTBuilder : public small_c_grammarBaseListener {
     // буфер для хранения текста текущего выражения
     std::string currentExpr;
 
-    // Вспомогательная функция для добавления инструкции в текущий блок
     void addInstruction(const Instruction& instr);
+    void beginBlock();
+    std::vector<Instruction> endBlock();
 };

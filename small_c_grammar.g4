@@ -21,11 +21,11 @@ block
     ;
 
 ifStatement
-    : 'if' '(' cond=mathExpr ')' statement elifChain? elseBranch?
+    : 'if' '(' cond = mathExpr ')' statement elifChain? elseBranch?
     ;
 
 elifChain
-    : ('else' 'if' '(' mathExpr ')' statement)+
+    : ('else' 'if' '(' elifCond += mathExpr ')' statement)+
     ;
 
 elseBranch
