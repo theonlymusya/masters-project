@@ -20,8 +20,16 @@ block
     : '{' statement* '}'
     ;
 
-ifStatement 
-    : 'if' '(' mathExpr ')' statement ( 'else' ifStatement | 'else' statement )?
+ifStatement
+    : 'if' '(' cond=mathExpr ')' statement elifChain? elseBranch?
+    ;
+
+elifChain
+    : ('else' 'if' '(' mathExpr ')' statement)+
+    ;
+
+elseBranch
+    : 'else' statement
     ;
 
 forStatement 
