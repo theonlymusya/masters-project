@@ -11,24 +11,23 @@
 
 struct ElseIf {
     std::string condition;
-    std::vector<Instruction> block;
+    ScopedBlock block;
 };
 
 struct IfNode {
     std::string condition;
-    std::vector<Instruction> thenBlock;
+    ScopedBlock thenBlock;
     std::vector<ElseIf> elseIfBranches;
-    std::vector<Instruction> elseBlock;
+    ScopedBlock elseBlock;
 };
 
 // Класс ASTBuilder наследуется от слушателя ANTLR4 и строит AST,
-// заполняя ASTContext и учитывая области видимости, вложенные блоки и ветвления if.
+// заполняя ASTContext и учитывая области видимости, вложенные блоки и ветвления if
 class ASTBuilder : public small_c_grammarBaseListener {
    public:
     ASTBuilder();
     virtual ~ASTBuilder();
 
-    // Получить итоговый ASTContext для дальнейшей обработки
     ASTContext& getASTContext();
 
     void enterProgram(small_c_grammarParser::ProgramContext* ctx) override;
@@ -62,17 +61,27 @@ class ASTBuilder : public small_c_grammarBaseListener {
     bool insideForHeader = false;
     ASTContext astContext;
 
-    // cтек для накопления инструкций текущего блока
+    // стеки
+    // для накопления инструкций текущего блока
     std::stack<std::vector<Instruction>> blockStack;
-    // cтек для временного хранения if-операторов
+    // для накопления переменных текущего блока
+    std::stack<std::unordered_map<std::string, VarInfo>> scopeStack;
+    // для временного хранения if-операторов
     std::stack<IfNode> ifStack;
     // cтек для тел циклов for (если требуется выделять отдельно)
-    std::stack<std::vector<Instruction>> loopBodyStack;
-
+    // std::stack<std::vector<Instruction>> loopBodyStack;
     // буфер для хранения текста текущего выражения
     std::string currentExpr;
 
-    void addInstruction(const Instruction& instr);
+    // std::unordered_map<std::string, VarInfo> getCurrentScope() const;
+
+    // вспомогательные функции обхода дерева и сбора информации
     void beginBlock();
-    std::vector<Instruction> endBlock();
+    ScopedBlock endBlock();
+    void addInstruction(const Instruction& instr);
+    void addVariable(const std::string& name,
+                     const std::string& type,
+                     const std::optional<std::string>& value,
+                     bool isArray,
+                     const std::vector<int>& dimensions);
 };

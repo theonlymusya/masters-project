@@ -7,10 +7,8 @@
 #include <variant>
 #include <vector>
 
-// Типы инструкций, которые будут храниться в AST
-enum class InstructionType { ASSIGNMENT, FOR_LOOP, IF_STATEMENT, BLOCK };
+enum class InstructionType { ASSIGNMENT, FOR_LOOP, IF_STATEMENT, BLOCK, MAIN_FUNC, PROGRAM };
 
-// Информация о переменной (с учётом области видимости)
 struct VarInfo {
     std::string type;
     std::optional<std::string> value;
@@ -22,31 +20,39 @@ struct VarInfo {
 // Предварительное объявление
 struct Instruction;
 
-// Структура для представления цикла for
+struct ScopedBlock {
+    std::vector<Instruction> instructions;
+    std::unordered_map<std::string, VarInfo> localScope;
+};
+
 struct LoopInfo {
     std::string varName;
     std::string start;
     std::string end;
     std::string step;
-    std::vector<Instruction> body;  // тело цикла – список инструкций
+    ScopedBlock body;
 };
 
 struct ElseIfStatement {
     std::string condition;
-    std::vector<Instruction> block;
+    ScopedBlock block;
 };
 
 struct IfStatement {
     std::string condition;
-    std::vector<Instruction> thenBlock;
+    ScopedBlock thenBlock;
     std::vector<ElseIfStatement> elseIfBranches;
-    std::vector<Instruction> elseBlock;
+    ScopedBlock elseBlock;
 };
 
-// Единичная инструкция представлена как тип и данные, хранимые в std::variant
 struct Instruction {
     InstructionType type;
-    std::variant<std::string, LoopInfo, IfStatement, std::vector<Instruction>> data;
+    std::variant<std::string,  // ASSIGNMENT
+                 LoopInfo,     // FOR_LOOP
+                 IfStatement,  // IF
+                 ScopedBlock   // BLOCK, MAIN_FUNC, PROGRAM
+                 >
+        data;
 };
 
 class ASTContext {
@@ -60,13 +66,15 @@ class ASTContext {
                      bool isArray,
                      const std::vector<int>& dimensions);
     void addAssignment(const std::string& expr);
-    void addLoop(const std::string& varName,
-                 const std::string& start,
-                 const std::string& end,
-                 const std::string& step,
-                 const std::vector<Instruction>& body);
-    void addIfStatement(const IfStatement& ifStmt);
-    void addBlock(const std::vector<Instruction>& block);
+    // void ASTContext::addLoop(const std::string& varName,
+    //                          const std::string& start,
+    //                          const std::string& end,
+    //                          const std::string& step,
+    //                          const ScopedBlock& body);
+    // void addIfStatement(const IfStatement& ifStmt);
+    void addProgram(const ScopedBlock& program);
+    void addInstruction(const Instruction& instr);
+    std::unordered_map<std::string, VarInfo> getCurrentScope() const;
 
     // Управление областями видимости: создание и удаление scope
     void pushScope();

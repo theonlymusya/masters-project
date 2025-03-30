@@ -10,75 +10,98 @@ Instruction makeAssignmentInstruction(const std::string& expr) {
 // вспомогательная функция для открытия блока
 void ASTBuilder::beginBlock() {
     blockStack.push({});
-    astContext.pushScope();
+    scopeStack.push({});
 }
 
 // вспомогательная функция для закрытия блока
-std::vector<Instruction> ASTBuilder::endBlock() {
-    auto block = blockStack.top();
+ScopedBlock ASTBuilder::endBlock() {
+    ScopedBlock block;
+
+    block.instructions = blockStack.top();
     blockStack.pop();
-    astContext.popScope();
+
+    block.localScope = scopeStack.top();
+    scopeStack.pop();
+
     return block;
 }
 
-ASTBuilder::ASTBuilder() {
-    // инициализируем стек, помещая верхнеуровневый блок
-    blockStack.push(std::vector<Instruction>());
+// вспомогательная функция накапливания инструкций в текущем блоке
+void ASTBuilder::addInstruction(const Instruction& instr) {
+    if (!blockStack.empty()) {
+        blockStack.top().push_back(instr);
+    } else {
+        std::cerr << "[WARNING] addInstruction called with empty block stack!\n";
+    }
 }
+
+// вспомогательная функция накапливания переменных в текущем блоке
+void ASTBuilder::addVariable(const std::string& name,
+                             const std::string& type,
+                             const std::optional<std::string>& value,
+                             bool isArray,
+                             const std::vector<int>& dimensions) {
+    VarInfo info{type, value, isArray, 0, dimensions};
+    if (!scopeStack.empty()) {
+        scopeStack.top()[name] = info;
+    } else {
+        std::cerr << "[WARNING] addVariable called with empty scope stack!\n";
+    }
+}
+
+ASTBuilder::ASTBuilder() {}
 
 ASTBuilder::~ASTBuilder() {}
 
 ASTContext& ASTBuilder::getASTContext() {
-    // по завершении сборки добавляем накопленные верхнеуровневые инструкции в ASTContext
-    if (!blockStack.empty()) {
-        astContext.addBlock(blockStack.top());
-    }
     return astContext;
 }
 
-void ASTBuilder::addInstruction(const Instruction& instr) {
-    if (!blockStack.empty()) {
-        blockStack.top().push_back(instr);
-    }
-}
-
-// --- Правило program ---
 void ASTBuilder::enterProgram(small_c_grammarParser::ProgramContext* ctx) {
-    // верхнеуровневый блок уже создан
+    blockStack.push({});
+    scopeStack.push({});
 }
 
 void ASTBuilder::exitProgram(small_c_grammarParser::ProgramContext* ctx) {
-    // ничего дополнительного не требуется
+    if (!blockStack.empty()) {
+        ScopedBlock top = endBlock();
+        astContext.addProgram(top);
+    }
 }
 
-// --- Функция (main) ---
 void ASTBuilder::enterFunction(small_c_grammarParser::FunctionContext* ctx) {
     // функция – это блок с собственной областью видимости
-    blockStack.push(std::vector<Instruction>());
-    astContext.pushScope();
+    beginBlock();
 }
 
 void ASTBuilder::exitFunction(small_c_grammarParser::FunctionContext* ctx) {
-    auto funcBlock = blockStack.top();
-    blockStack.pop();
-    astContext.addBlock(funcBlock);
-    astContext.popScope();
+    ScopedBlock funcBlock = endBlock();
+
+    Instruction funcInstr;
+    funcInstr.type = InstructionType::MAIN_FUNC;
+    funcInstr.data = funcBlock;
+
+    addInstruction(funcInstr);
 }
 
-// --- Блок ---
 void ASTBuilder::enterBlock(small_c_grammarParser::BlockContext* ctx) {
     beginBlock();
 }
 
 void ASTBuilder::exitBlock(small_c_grammarParser::BlockContext* ctx) {
-    auto block = endBlock();
-    // добавляем блок как отдельную инструкцию
-    addInstruction(Instruction{InstructionType::BLOCK, block});
+    ScopedBlock block = endBlock();
+
+    Instruction blockInstr;
+    blockInstr.type = InstructionType::BLOCK;
+    blockInstr.data = block;
+
+    addInstruction(blockInstr);
 }
 
-// --- AssignmentOp (объявление и/или присваивание) ---
+// assignmentOp
+//     : declaration? varName ('=' mathExpr)?
+//     ;
 void ASTBuilder::enterAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) {
-    // Если присутствует объявление, добавляем переменную в таблицу символов
     if (ctx->declaration()) {
         std::string varType = ctx->declaration()->getText();
         std::string varName = ctx->varName()->getText();
@@ -100,8 +123,7 @@ void ASTBuilder::enterAssignmentOp(small_c_grammarParser::AssignmentOpContext* c
                 }
             }
         }
-
-        astContext.addVariable(varName, varType, value, isArray, dimensions);
+        addVariable(varName, varType, value, isArray, dimensions);
     }
     // Начинаем формировать строку выражения.
     currentExpr = ctx->getText();
@@ -170,8 +192,8 @@ void ASTBuilder::exitIfStatement(small_c_grammarParser::IfStatementContext* ctx)
         handleElseBranch(ctx->elseBranch(), currentIf);
     }
 
-    Instruction instr;
-    instr.type = InstructionType::IF_STATEMENT;
+    Instruction ifInstr;
+    ifInstr.type = InstructionType::IF_STATEMENT;
 
     IfStatement finalIf;
     finalIf.condition = currentIf.condition;
@@ -181,22 +203,18 @@ void ASTBuilder::exitIfStatement(small_c_grammarParser::IfStatementContext* ctx)
     }
     finalIf.elseBlock = currentIf.elseBlock;
 
-    instr.data = finalIf;
-    addInstruction(instr);
+    ifInstr.data = finalIf;
+    addInstruction(ifInstr);
 }
 
-// --- forStatement ---
 void ASTBuilder::enterForStatement(small_c_grammarParser::ForStatementContext* ctx) {
-    blockStack.push(std::vector<Instruction>());
-    astContext.pushScope();
+    beginBlock();
     insideForHeader = true;
 }
 
 void ASTBuilder::exitForStatement(small_c_grammarParser::ForStatementContext* ctx) {
     // Забираем тело цикла
-    auto loopBody = blockStack.top();
-    blockStack.pop();
-    astContext.popScope();
+    auto loopBody = endBlock();
 
     // Считываем параметры цикла
     std::string varName, start, end, step = "1";
@@ -221,11 +239,11 @@ void ASTBuilder::exitForStatement(small_c_grammarParser::ForStatementContext* ct
         }
     }
 
-    // Формируем инструкцию цикла
-    Instruction loopInstr;
-    loopInstr.type = InstructionType::FOR_LOOP;
-    loopInstr.data = LoopInfo{varName, start, end, step, loopBody};
-    addInstruction(loopInstr);
+    Instruction forLoopInstr;
+    forLoopInstr.type = InstructionType::FOR_LOOP;
+    forLoopInstr.data = LoopInfo{varName, start, end, step, loopBody.instructions};
+    addInstruction(forLoopInstr);
+
     insideForHeader = false;
 }
 

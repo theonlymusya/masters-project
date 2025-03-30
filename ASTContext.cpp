@@ -62,6 +62,12 @@ void ASTContext::popScope() {
     }
 }
 
+std::unordered_map<std::string, VarInfo> ASTContext::getCurrentScope() const {
+    if (!scopes.empty())
+        return scopes.back();
+    return {};
+}
+
 void ASTContext::addVariable(const std::string& name,
                              const std::string& type,
                              const std::optional<std::string>& value,
@@ -78,20 +84,24 @@ void ASTContext::addAssignment(const std::string& expr) {
     instructions.push_back({InstructionType::ASSIGNMENT, expr});
 }
 
-void ASTContext::addLoop(const std::string& varName,
-                         const std::string& start,
-                         const std::string& end,
-                         const std::string& step,
-                         const std::vector<Instruction>& body) {
-    instructions.push_back({InstructionType::FOR_LOOP, LoopInfo{varName, start, end, step, body}});
+// void ASTContext::addLoop(const std::string& varName,
+//                          const std::string& start,
+//                          const std::string& end,
+//                          const std::string& step,
+//                          const ScopedBlock& body) {
+//     instructions.push_back({InstructionType::FOR_LOOP, LoopInfo{varName, start, end, step, body}});
+// }
+
+// void ASTContext::addIfStatement(const IfStatement& ifStmt) {
+//     instructions.push_back({InstructionType::IF_STATEMENT, ifStmt});
+// }
+
+void ASTContext::addProgram(const ScopedBlock& block) {
+    instructions.push_back({InstructionType::PROGRAM, block});
 }
 
-void ASTContext::addIfStatement(const IfStatement& ifStmt) {
-    instructions.push_back({InstructionType::IF_STATEMENT, ifStmt});
-}
-
-void ASTContext::addBlock(const std::vector<Instruction>& block) {
-    instructions.push_back({InstructionType::BLOCK, block});
+void ASTContext::addInstruction(const Instruction& instr) {
+    instructions.push_back(instr);
 }
 
 void ASTContext::executeInstructions() const {
@@ -111,9 +121,11 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs,
             case InstructionType::IF_STATEMENT:
                 executeIfStatement(std::get<IfStatement>(instr.data), loopVars);
                 break;
+            case InstructionType::MAIN_FUNC:
+            case InstructionType::PROGRAM:
             case InstructionType::BLOCK: {
-                const auto& block = std::get<std::vector<Instruction>>(instr.data);
-                executeInstructionList(block, loopVars);
+                const auto& scoped = std::get<ScopedBlock>(instr.data);
+                executeInstructionList(scoped.instructions, loopVars);
                 break;
             }
         }
@@ -121,13 +133,16 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs,
 }
 
 void ASTContext::executeLoop(const LoopInfo& loop, std::unordered_map<std::string, int> loopVars) const {
+    std::cout << "[DEBUG] executeLoop: " << loop.varName << " from " << loop.start << " to " << loop.end
+              << " step " << loop.step << "\n";
+
     int start = std::stoi(loop.start);
     int end = std::stoi(loop.end);
     int step = std::stoi(loop.step);
 
     for (int i = start; i < end; i += step) {
         loopVars[loop.varName] = i;
-        executeInstructionList(loop.body, loopVars);
+        executeInstructionList(loop.body.instructions, loopVars);
     }
 }
 
@@ -136,19 +151,19 @@ void ASTContext::executeIfStatement(const IfStatement& ifStmt,
     // Для демонстрации считаем, что условие – число, отличное от 0 означает true.
     int condValue = std::stoi(expandVariables(ifStmt.condition, loopVars));
     if (condValue) {
-        executeInstructionList(ifStmt.thenBlock, loopVars);
+        executeInstructionList(ifStmt.thenBlock.instructions, loopVars);
     } else {
         bool executedElseIf = false;
         for (const auto& branch : ifStmt.elseIfBranches) {
             int elifVal = std::stoi(expandVariables(branch.condition, loopVars));
             if (elifVal) {
-                executeInstructionList(branch.block, loopVars);
+                executeInstructionList(branch.block.instructions, loopVars);
                 executedElseIf = true;
                 break;
             }
         }
-        if (!executedElseIf && !ifStmt.elseBlock.empty()) {
-            executeInstructionList(ifStmt.elseBlock, loopVars);
+        if (!executedElseIf && !ifStmt.elseBlock.instructions.empty()) {
+            executeInstructionList(ifStmt.elseBlock.instructions, loopVars);
         }
     }
 }
@@ -176,25 +191,27 @@ void ASTContext::printAST() const {
 void ASTContext::printInstructionList(const std::vector<Instruction>& instrs, int indent) const {
     std::string ind(indent * 2, ' ');
 
+    auto printScope = [&](const std::unordered_map<std::string, VarInfo>& scope) {
+        if (!scope.empty()) {
+            std::cout << ind << "  [Scope variables:";
+            for (const auto& [name, var] : scope) {
+                std::cout << " " << name;
+                if (var.isArray)
+                    std::cout << "[]";
+            }
+            std::cout << " ]\n";
+        }
+    };
+
     for (const auto& instr : instrs) {
         switch (instr.type) {
-            case InstructionType::ASSIGNMENT:
+            case InstructionType::ASSIGNMENT: {
                 if (!std::holds_alternative<std::string>(instr.data)) {
                     std::cout << ind << "ASSIGNMENT: [ОШИБКА: data не string!]\n";
                 } else {
-                    auto& text = std::get<std::string>(instr.data);
-                    if (text.empty()) {
-                        std::cout << ind << "ASSIGNMENT: [ПУСТАЯ СТРОКА]\n";
-                    } else {
-                        std::cout << ind << "ASSIGNMENT: " << text << "\n";
-                    }
+                    const auto& text = std::get<std::string>(instr.data);
+                    std::cout << ind << "ASSIGNMENT: " << (text.empty() ? "[ПУСТАЯ СТРОКА]" : text) << "\n";
                 }
-                break;
-
-            case InstructionType::BLOCK: {
-                std::cout << ind << "BLOCK:\n";
-                const auto& block = std::get<std::vector<Instruction>>(instr.data);
-                printInstructionList(block, indent + 1);
                 break;
             }
 
@@ -202,24 +219,45 @@ void ASTContext::printInstructionList(const std::vector<Instruction>& instrs, in
                 const auto& loop = std::get<LoopInfo>(instr.data);
                 std::cout << ind << "FOR_LOOP: " << loop.varName << " = " << loop.start << "; to " << loop.end
                           << "; step " << loop.step << "\n";
-                printInstructionList(loop.body, indent + 1);
+                printScope(loop.body.localScope);
+                printInstructionList(loop.body.instructions, indent + 1);
                 break;
             }
 
             case InstructionType::IF_STATEMENT: {
                 const auto& ifStmt = std::get<IfStatement>(instr.data);
                 std::cout << ind << "IF: (" << ifStmt.condition << ")\n";
-                printInstructionList(ifStmt.thenBlock, indent + 1);
+                printScope(ifStmt.thenBlock.localScope);
+                printInstructionList(ifStmt.thenBlock.instructions, indent + 1);
 
                 for (const auto& elif : ifStmt.elseIfBranches) {
                     std::cout << ind << "ELSE IF: (" << elif.condition << ")\n";
-                    printInstructionList(elif.block, indent + 1);
+                    printScope(elif.block.localScope);
+                    printInstructionList(elif.block.instructions, indent + 1);
                 }
 
-                if (!ifStmt.elseBlock.empty()) {
+                if (!ifStmt.elseBlock.instructions.empty()) {
                     std::cout << ind << "ELSE:\n";
-                    printInstructionList(ifStmt.elseBlock, indent + 1);
+                    printScope(ifStmt.elseBlock.localScope);
+                    printInstructionList(ifStmt.elseBlock.instructions, indent + 1);
                 }
+                break;
+            }
+
+            case InstructionType::BLOCK:
+            case InstructionType::PROGRAM:
+            case InstructionType::MAIN_FUNC: {
+                const auto& scoped = std::get<ScopedBlock>(instr.data);
+                std::string label;
+                if (instr.type == InstructionType::MAIN_FUNC)
+                    label = "MAIN_FUNC";
+                else if (instr.type == InstructionType::BLOCK)
+                    label = "BLOCk";
+                else
+                    label = "PROGRAM";
+                std::cout << ind << label << ":\n";
+                printScope(scoped.localScope);
+                printInstructionList(scoped.instructions, indent + 1);
                 break;
             }
         }
