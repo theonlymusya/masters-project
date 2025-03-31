@@ -48,9 +48,6 @@ class ASTBuilder : public small_c_grammarBaseListener {
     void enterIfStatement(small_c_grammarParser::IfStatementContext* ctx) override;
     void exitIfStatement(small_c_grammarParser::IfStatementContext* ctx) override;
 
-    void handleElifChain(small_c_grammarParser::ElifChainContext* ctx, IfNode& node);
-    void handleElseBranch(small_c_grammarParser::ElseBranchContext* ctx, IfNode& node);
-
     void enterForStatement(small_c_grammarParser::ForStatementContext* ctx) override;
     void exitForStatement(small_c_grammarParser::ForStatementContext* ctx) override;
 
@@ -78,10 +75,19 @@ class ASTBuilder : public small_c_grammarBaseListener {
     // вспомогательные функции обхода дерева и сбора информации
     void beginBlock();
     ScopedBlock endBlock();
+
     void addInstruction(const Instruction& instr);
     void addVariable(const std::string& name,
                      const std::string& type,
                      const std::optional<std::string>& value,
                      bool isArray,
-                     const std::vector<int>& dimensions);
+                     int dim,
+                     const std::vector<std::string>& dimSizes);
+
+    void handleDeclaration(small_c_grammarParser::AssignmentOpContext* ctx);
+    AssignmentInfo buildAssignmentInfo(small_c_grammarParser::AssignmentOpContext* ctx);
+
+    void handleElifChain(small_c_grammarParser::ElifChainContext* ctx, IfNode& node);
+    void handleElseBranch(small_c_grammarParser::ElseBranchContext* ctx, IfNode& node);
+    void collectIndexedVariables(antlr4::tree::ParseTree* node, std::vector<IndexedVariable>& out);
 };

@@ -4,7 +4,7 @@
 
 // вспомогательная функция для создания инструкции ASSIGNMENT из строкового выражения
 Instruction makeAssignmentInstruction(const std::string& expr) {
-    return Instruction{InstructionType::ASSIGNMENT, expr};
+    // return Instruction{InstructionType::ASSIGNMENT, expr};
 }
 
 // вспомогательная функция для открытия блока
@@ -40,8 +40,9 @@ void ASTBuilder::addVariable(const std::string& name,
                              const std::string& type,
                              const std::optional<std::string>& value,
                              bool isArray,
-                             const std::vector<int>& dimensions) {
-    VarInfo info{type, value, isArray, 0, dimensions};
+                             int dim,
+                             const std::vector<std::string>& dimSizes) {
+    VarInfo info{type, value, isArray, dim, dimSizes};
     if (!scopeStack.empty()) {
         scopeStack.top()[name] = info;
     } else {
@@ -101,50 +102,102 @@ void ASTBuilder::exitBlock(small_c_grammarParser::BlockContext* ctx) {
 // assignmentOp
 //     : declaration? varName ('=' mathExpr)?
 //     ;
+
+void ASTBuilder::handleDeclaration(small_c_grammarParser::AssignmentOpContext* ctx) {
+    std::string varType = ctx->declaration()->getText();
+    std::string varName = ctx->varName()->ID()->getText();
+    std::optional<std::string> varValue = std::nullopt;
+
+    if (ctx->mathExpr()) {
+        varValue = ctx->mathExpr()->getText();
+    }
+
+    std::vector<std::string> dimSizes;
+    bool isArray = ctx->varName()->arrayDecl() != nullptr;
+    if (isArray) {
+        auto exprs = ctx->varName()->arrayDecl()->mathExpr();
+        for (auto* expr : exprs) {
+            dimSizes.push_back(expr->getText());
+        }
+    }
+    int dim = dimSizes.size();
+
+    addVariable(varName, varType, varValue, isArray, dim, dimSizes);
+}
+
+void ASTBuilder::collectIndexedVariables(antlr4::tree::ParseTree* node, std::vector<IndexedVariable>& out) {
+    if (!node)
+        return;
+
+    auto* var = dynamic_cast<small_c_grammarParser::VarNameContext*>(node);
+    if (var) {
+        IndexedVariable iv;
+        iv.name = var->ID()->getText();
+        // std::cout << iv.name << " ";
+
+        if (auto* arr = var->arrayDecl()) {
+            for (auto* expr : arr->mathExpr()) {
+                // std::cout << expr->getText() << " ";
+                iv.indices.push_back(expr->getText());
+            }
+        } else {
+            iv.indices.push_back("0");
+        }
+        // std::cout << std::endl;
+
+        out.push_back(iv);
+        return;
+    }
+
+    for (int i = 0; i < node->children.size(); ++i) {
+        collectIndexedVariables(node->children[i], out);
+    }
+}
+
+AssignmentInfo ASTBuilder::buildAssignmentInfo(small_c_grammarParser::AssignmentOpContext* ctx) {
+    AssignmentInfo info;
+
+    auto* leftVar = ctx->varName();
+    info.leftVar.name = leftVar->ID()->getText();
+
+    if (leftVar->arrayDecl()) {
+        for (auto* idxExpr : leftVar->arrayDecl()->mathExpr()) {
+            info.leftVar.indices.push_back(idxExpr->getText());
+        }
+    }
+    if (ctx->mathExpr()) {
+        // std::cout << "\n=== mathExpr AST ===\n";
+        // std::cout << ctx->mathExpr()->toStringTree() << "\n";
+        collectIndexedVariables(ctx->mathExpr(), info.rightVars);
+    }
+
+    return info;
+}
+
 void ASTBuilder::enterAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) {
     if (ctx->declaration()) {
-        std::string varType = ctx->declaration()->getText();
-        std::string varName = ctx->varName()->getText();
-        std::optional<std::string> value = std::nullopt;
-        if (ctx->mathExpr()) {
-            value = ctx->mathExpr()->getText();
-        }
-        std::vector<int> dimensions;
-        bool isArray = (ctx->varName()->arrayDecl() != nullptr);
-        if (isArray) {
-            auto exprs = ctx->varName()->arrayDecl()->mathExpr();
-            for (auto* expr : exprs) {
-                try {
-                    dimensions.push_back(std::stoi(expr->getText()));
-                } catch (...) {
-                    std::cerr << "Ошибка преобразования размерности массива: " << expr->getText()
-                              << std::endl;
-                    dimensions.push_back(0);  // безопасное значение по умолчанию
-                }
-            }
-        }
-        addVariable(varName, varType, value, isArray, dimensions);
+        handleDeclaration(ctx);
     }
-    // Начинаем формировать строку выражения.
-    currentExpr = ctx->getText();
+
+    AssignmentInfo assign = buildAssignmentInfo(ctx);
+    addInstruction({InstructionType::ASSIGNMENT, assign});
+    astContext.printAssignment({InstructionType::ASSIGNMENT, assign}, 1);
 }
 
 void ASTBuilder::exitAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) {
-    // Сохраняем инструкцию присваивания
-    addInstruction(makeAssignmentInstruction(currentExpr));
-    currentExpr.clear();
+    // ничего не требуется
 }
 
 // --- Инкремент/декремент ---
 void ASTBuilder::enterIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) {
-    currentExpr = ctx->getText();
+    // currentExpr = ctx->getText();
 }
 
 void ASTBuilder::exitIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) {
-    if (!insideForHeader) {
-        addInstruction(makeAssignmentInstruction(currentExpr));
-    }
-    currentExpr.clear();
+    // if (!insideForHeader) {
+    //     addInstruction(makeAssignmentInstruction(currentExpr));
+    // }
+    // currentExpr.clear();
 }
 
 void ASTBuilder::enterIfStatement(small_c_grammarParser::IfStatementContext* ctx) {

@@ -73,15 +73,16 @@ void ASTContext::addVariable(const std::string& name,
                              const std::optional<std::string>& value,
                              bool isArray,
                              const std::vector<int>& dimensions) {
-    if (scopes.empty()) {
-        pushScope();
-    }
+    // if (scopes.empty()) {
+    //     pushScope();
+    // }
 
-    scopes.back()[name] = VarInfo{.type = type, .value = value, .isArray = isArray, .dimensions = dimensions};
+    // scopes.back()[name] = VarInfo{.type = type, .value = value, .isArray = isArray, .dimensions =
+    // dimensions};
 }
 
 void ASTContext::addAssignment(const std::string& expr) {
-    instructions.push_back({InstructionType::ASSIGNMENT, expr});
+    // instructions.push_back({InstructionType::ASSIGNMENT, expr});
 }
 
 // void ASTContext::addLoop(const std::string& varName,
@@ -113,7 +114,7 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs,
     for (const auto& instr : instrs) {
         switch (instr.type) {
             case InstructionType::ASSIGNMENT:
-                std::cout << expandVariables(std::get<std::string>(instr.data), loopVars) << "\n";
+                // std::cout << expandVariables(std::get<std::string>(instr.data), loopVars) << "\n";
                 break;
             case InstructionType::FOR_LOOP:
                 executeLoop(std::get<LoopInfo>(instr.data), loopVars);
@@ -189,77 +190,138 @@ void ASTContext::printAST() const {
 }
 
 void ASTContext::printInstructionList(const std::vector<Instruction>& instrs, int indent) const {
-    std::string ind(indent * 2, ' ');
-
-    auto printScope = [&](const std::unordered_map<std::string, VarInfo>& scope) {
-        if (!scope.empty()) {
-            std::cout << ind << "  [Scope variables:";
-            for (const auto& [name, var] : scope) {
-                std::cout << " " << name;
-                if (var.isArray)
-                    std::cout << "[]";
-            }
-            std::cout << " ]\n";
-        }
-    };
-
     for (const auto& instr : instrs) {
         switch (instr.type) {
-            case InstructionType::ASSIGNMENT: {
-                if (!std::holds_alternative<std::string>(instr.data)) {
-                    std::cout << ind << "ASSIGNMENT: [ОШИБКА: data не string!]\n";
-                } else {
-                    const auto& text = std::get<std::string>(instr.data);
-                    std::cout << ind << "ASSIGNMENT: " << (text.empty() ? "[ПУСТАЯ СТРОКА]" : text) << "\n";
-                }
+            case InstructionType::ASSIGNMENT:
+                printAssignment(instr, indent);
                 break;
-            }
-
-            case InstructionType::FOR_LOOP: {
-                const auto& loop = std::get<LoopInfo>(instr.data);
-                std::cout << ind << "FOR_LOOP: " << loop.varName << " = " << loop.start << "; to " << loop.end
-                          << "; step " << loop.step << "\n";
-                printScope(loop.body.localScope);
-                printInstructionList(loop.body.instructions, indent + 1);
+            case InstructionType::FOR_LOOP:
+                printForLoop(instr, indent);
                 break;
-            }
-
-            case InstructionType::IF_STATEMENT: {
-                const auto& ifStmt = std::get<IfStatement>(instr.data);
-                std::cout << ind << "IF: (" << ifStmt.condition << ")\n";
-                printScope(ifStmt.thenBlock.localScope);
-                printInstructionList(ifStmt.thenBlock.instructions, indent + 1);
-
-                for (const auto& elif : ifStmt.elseIfBranches) {
-                    std::cout << ind << "ELSE IF: (" << elif.condition << ")\n";
-                    printScope(elif.block.localScope);
-                    printInstructionList(elif.block.instructions, indent + 1);
-                }
-
-                if (!ifStmt.elseBlock.instructions.empty()) {
-                    std::cout << ind << "ELSE:\n";
-                    printScope(ifStmt.elseBlock.localScope);
-                    printInstructionList(ifStmt.elseBlock.instructions, indent + 1);
-                }
+            case InstructionType::IF_STATEMENT:
+                printIfStatement(instr, indent);
                 break;
-            }
-
             case InstructionType::BLOCK:
             case InstructionType::PROGRAM:
-            case InstructionType::MAIN_FUNC: {
-                const auto& scoped = std::get<ScopedBlock>(instr.data);
-                std::string label;
-                if (instr.type == InstructionType::MAIN_FUNC)
-                    label = "MAIN_FUNC";
-                else if (instr.type == InstructionType::BLOCK)
-                    label = "BLOCk";
-                else
-                    label = "PROGRAM";
-                std::cout << ind << label << ":\n";
-                printScope(scoped.localScope);
-                printInstructionList(scoped.instructions, indent + 1);
+            case InstructionType::MAIN_FUNC:
+                printBlock(instr, indent);
                 break;
-            }
         }
     }
+}
+
+void ASTContext::printScope(const std::unordered_map<std::string, VarInfo>& scope, int indent = 1) const {
+    std::string ind(indent * 2, ' ');
+    if (!scope.empty()) {
+        std::cout << ind << "  [Scope variables: \n";
+        for (const auto& [name, var] : scope) {
+            std::cout << ind << "    " << COLOR_CYAN << name << COLOR_RESET << ": " << COLOR_GREEN << var.type
+                      << COLOR_RESET;
+
+            if (var.isArray) {
+                std::cout << COLOR_YELLOW << " array[" << var.dim << "]" << COLOR_RESET;
+
+                if (!var.dimSizes.empty()) {
+                    std::cout << COLOR_MAGENTA << " sizes = [";
+                    for (size_t i = 0; i < var.dimSizes.size(); ++i) {
+                        std::cout << var.dimSizes[i];
+                        if (i + 1 < var.dimSizes.size())
+                            std::cout << ", ";
+                    }
+                    std::cout << "]" << COLOR_RESET;
+                }
+            } else {
+                std::cout << " scalar";
+            }
+
+            if (var.value.has_value()) {
+                std::cout << ", default = " << COLOR_BLUE << *var.value << COLOR_RESET;
+            }
+
+            std::cout << "\n";
+        }
+        std::cout << ind << "  ]\n";
+    }
+}
+
+void ASTContext::printAssignment(const Instruction& instr, int indent = 1) const {
+    std::string ind(indent * 2, ' ');
+    if (!std::holds_alternative<AssignmentInfo>(instr.data)) {
+        std::cout << ind << COLOR_RED << "ASSIGNMENT: [ERROR: data is not AssignmentInfo!]" << COLOR_RESET
+                  << "\n";
+        return;
+    }
+    const auto& assign = std::get<AssignmentInfo>(instr.data);
+    std::cout << ind << COLOR_BLUE << "ASSIGNMENT:" << COLOR_RESET << "\n";
+
+    std::cout << ind << "  " << COLOR_GREEN << "LHS: " << COLOR_RESET << assign.leftVar.name;
+    if (!assign.leftVar.indices.empty()) {
+        std::cout << COLOR_YELLOW << "[";
+        for (size_t i = 0; i < assign.leftVar.indices.size(); ++i) {
+            std::cout << assign.leftVar.indices[i];
+            if (i + 1 < assign.leftVar.indices.size())
+                std::cout << ", ";
+        }
+        std::cout << "]" << COLOR_RESET;
+    } else {
+        std::cout << COLOR_YELLOW << "[0]" << COLOR_RESET;
+    }
+    std::cout << "\n";
+
+    std::cout << ind << "  " << COLOR_GREEN << "RHS variables:" << COLOR_RESET << "\n";
+    for (const auto& var : assign.rightVars) {
+        std::cout << ind << "    - " << COLOR_CYAN << var.name;
+        if (!var.indices.empty()) {
+            std::cout << COLOR_YELLOW << "[";
+            for (size_t j = 0; j < var.indices.size(); ++j) {
+                std::cout << var.indices[j];
+                if (j + 1 < var.indices.size())
+                    std::cout << ", ";
+            }
+            std::cout << "]" << COLOR_RESET;
+        } else {
+            std::cout << COLOR_YELLOW << "[0]" << COLOR_RESET;
+        }
+        std::cout << "\n";
+    }
+}
+
+void ASTContext::printForLoop(const Instruction& instr, int indent = 1) const {
+    std::string ind(indent * 2, ' ');
+    const auto& loop = std::get<LoopInfo>(instr.data);
+    std::cout << ind << "FOR_LOOP: " << loop.varName << " = " << loop.start << "; to " << loop.end
+              << "; step " << loop.step << "\n";
+    printScope(loop.body.localScope, indent);
+    printInstructionList(loop.body.instructions, indent + 1);
+}
+
+void ASTContext::printIfStatement(const Instruction& instr, int indent = 1) const {
+    std::string ind(indent * 2, ' ');
+    const auto& ifStmt = std::get<IfStatement>(instr.data);
+    std::cout << ind << "IF: (" << ifStmt.condition << ")\n";
+    printScope(ifStmt.thenBlock.localScope, indent);
+    printInstructionList(ifStmt.thenBlock.instructions, indent + 1);
+
+    for (const auto& elif : ifStmt.elseIfBranches) {
+        std::cout << ind << "ELSE IF: (" << elif.condition << ")\n";
+        printScope(elif.block.localScope, indent);
+        printInstructionList(elif.block.instructions, indent + 1);
+    }
+
+    if (!ifStmt.elseBlock.instructions.empty()) {
+        std::cout << ind << "ELSE:\n";
+        printScope(ifStmt.elseBlock.localScope, indent);
+        printInstructionList(ifStmt.elseBlock.instructions, indent + 1);
+    }
+}
+
+void ASTContext::printBlock(const Instruction& instr, int indent = 1) const {
+    std::string ind(indent * 2, ' ');
+    const auto& scoped = std::get<ScopedBlock>(instr.data);
+    std::string label = instr.type == InstructionType::MAIN_FUNC ? "MAIN_FUNC"
+                        : instr.type == InstructionType::BLOCK   ? "BLOCK"
+                                                                 : "PROGRAM";
+    std::cout << ind << label << ":\n";
+    printScope(scoped.localScope, indent);
+    printInstructionList(scoped.instructions, indent + 1);
 }

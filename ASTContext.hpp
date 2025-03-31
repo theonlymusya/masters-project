@@ -6,6 +6,13 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#define COLOR_RESET "\033[0m"
+#define COLOR_RED "\033[31m"
+#define COLOR_GREEN "\033[32m"
+#define COLOR_YELLOW "\033[33m"
+#define COLOR_BLUE "\033[34m"
+#define COLOR_CYAN "\033[36m"
+#define COLOR_MAGENTA "\033[35m"
 
 enum class InstructionType { ASSIGNMENT, FOR_LOOP, IF_STATEMENT, BLOCK, MAIN_FUNC, PROGRAM };
 
@@ -13,8 +20,8 @@ struct VarInfo {
     std::string type;
     std::optional<std::string> value;
     bool isArray;
-    int arraySize;
-    std::vector<int> dimensions;
+    int dim = 0;
+    std::vector<std::string> dimSizes;
 };
 
 // Предварительное объявление
@@ -45,12 +52,22 @@ struct IfStatement {
     ScopedBlock elseBlock;
 };
 
+struct IndexedVariable {
+    std::string name;
+    std::vector<std::string> indices;
+};
+
+struct AssignmentInfo {
+    IndexedVariable leftVar;
+    std::vector<IndexedVariable> rightVars;
+};
+
 struct Instruction {
     InstructionType type;
-    std::variant<std::string,  // ASSIGNMENT
-                 LoopInfo,     // FOR_LOOP
-                 IfStatement,  // IF
-                 ScopedBlock   // BLOCK, MAIN_FUNC, PROGRAM
+    std::variant<AssignmentInfo,  // ASSIGNMENT
+                 LoopInfo,        // FOR_LOOP
+                 IfStatement,     // IF
+                 ScopedBlock      // BLOCK, MAIN_FUNC, PROGRAM
                  >
         data;
 };
@@ -86,6 +103,11 @@ class ASTContext {
     // печатка
     void printAST() const;
     void printInstructionList(const std::vector<Instruction>& instrs, int indent) const;
+    void printScope(const std::unordered_map<std::string, VarInfo>& scope, int indent) const;
+    void printAssignment(const Instruction& instr, int indent) const;
+    void printForLoop(const Instruction& instr, int indent) const;
+    void printIfStatement(const Instruction& instr, int indent) const;
+    void printBlock(const Instruction& instr, int indent) const;
 
    private:
     // Глобальный список инструкций (топ-левел блок)

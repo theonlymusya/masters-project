@@ -5,7 +5,7 @@ program
     ;
 
 function 
-    : 'int' 'main' '(' ')' block
+    : 'int' 'main' '(' ')' '{' statement* '}'
     ;
 
 statement
