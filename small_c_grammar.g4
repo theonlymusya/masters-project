@@ -12,7 +12,6 @@ statement
     : ifStatement
     | forStatement
     | assignmentOp ';'
-    | incDecOp ';'
     | block
     ;
 
@@ -41,12 +40,15 @@ forStart
     ;
 
 forStop 
-    : ID ( '<' | '>' | '<=' | '>=' ) mathExpr
+    : mathExpr
     ;
 
-forStep 
-    : ID ( '-=' | '+=' | '/=' | '%=') mathExpr 
-    | incDecOp
+forStep
+    : forStepExpr (',' forStepExpr)*
+    ;
+
+forStepExpr
+    : varName '=' mathExpr
     ;
 
 assignmentOp
@@ -63,10 +65,6 @@ varName
 
 arrayDecl 
     : '[' mathExpr ']' ('[' mathExpr ']' )? ('[' mathExpr ']' )?
-    ;
-
-incDecOp
-    : ID ( '++' | '--' )
     ;
 
 mathExpr

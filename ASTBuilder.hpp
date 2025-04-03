@@ -42,9 +42,6 @@ class ASTBuilder : public small_c_grammarBaseListener {
     void enterAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) override;
     void exitAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) override;
 
-    void enterIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) override;
-    void exitIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) override;
-
     void enterIfStatement(small_c_grammarParser::IfStatementContext* ctx) override;
     void exitIfStatement(small_c_grammarParser::IfStatementContext* ctx) override;
 
@@ -55,7 +52,8 @@ class ASTBuilder : public small_c_grammarBaseListener {
     void exitMathExpr(small_c_grammarParser::MathExprContext* ctx) override;
 
    private:
-    bool insideForHeader = false;
+    bool disableInstructionCapture = false;
+
     ASTContext astContext;
 
     // стеки
@@ -90,4 +88,8 @@ class ASTBuilder : public small_c_grammarBaseListener {
     void handleElifChain(small_c_grammarParser::ElifChainContext* ctx, IfNode& node);
     void handleElseBranch(small_c_grammarParser::ElseBranchContext* ctx, IfNode& node);
     void collectIndexedVariables(antlr4::tree::ParseTree* node, std::vector<IndexedVariable>& out);
+
+    void handleForInit(small_c_grammarParser::ForStartContext* startCtx, LoopInfo& loopInfo);
+    void handleForCondition(small_c_grammarParser::ForStopContext* stopCtx, LoopInfo& loopInfo);
+    void handleForUpdate(small_c_grammarParser::ForStepContext* stepCtx, LoopInfo& loopInfo);
 };

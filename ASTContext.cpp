@@ -134,17 +134,17 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs,
 }
 
 void ASTContext::executeLoop(const LoopInfo& loop, std::unordered_map<std::string, int> loopVars) const {
-    std::cout << "[DEBUG] executeLoop: " << loop.varName << " from " << loop.start << " to " << loop.end
-              << " step " << loop.step << "\n";
+    // std::cout << "[DEBUG] executeLoop: " << loop.varName << " from " << loop.start << " to " << loop.end
+    //           << " step " << loop.step << "\n";
 
-    int start = std::stoi(loop.start);
-    int end = std::stoi(loop.end);
-    int step = std::stoi(loop.step);
+    // int start = std::stoi(loop.start);
+    // int end = std::stoi(loop.end);
+    // int step = std::stoi(loop.step);
 
-    for (int i = start; i < end; i += step) {
-        loopVars[loop.varName] = i;
-        executeInstructionList(loop.body.instructions, loopVars);
-    }
+    // for (int i = start; i < end; i += step) {
+    //     loopVars[loop.varName] = i;
+    //     executeInstructionList(loop.body.instructions, loopVars);
+    // }
 }
 
 void ASTContext::executeIfStatement(const IfStatement& ifStmt,
@@ -284,13 +284,47 @@ void ASTContext::printAssignment(const Instruction& instr, int indent = 1) const
         }
         std::cout << "\n";
     }
+    std::cout << ind << "  " << COLOR_GREEN << "Value: " << COLOR_RESET;
+    std::cout << COLOR_YELLOW << assign.value << COLOR_RESET;
+    std::cout << "\n";
 }
 
 void ASTContext::printForLoop(const Instruction& instr, int indent = 1) const {
     std::string ind(indent * 2, ' ');
     const auto& loop = std::get<LoopInfo>(instr.data);
-    std::cout << ind << "FOR_LOOP: " << loop.varName << " = " << loop.start << "; to " << loop.end
-              << "; step " << loop.step << "\n";
+
+    // Печать инициализации
+    std::cout << ind << "FOR_LOOP: ";
+    if (!loop.initVarName.empty()) {
+        std::cout << loop.initVarName << " = " << loop.initValue;
+    } else {
+        std::cout << "(no initialization)";
+    }
+
+    // Печать условия
+    std::cout << "; ";
+    if (!loop.condition.empty()) {
+        std::cout << loop.condition;
+    } else {
+        std::cout << "(no condition)";
+    }
+
+    // Печать обновлений
+    std::cout << "; ";
+    if (!loop.updates.empty()) {
+        for (size_t i = 0; i < loop.updates.size(); ++i) {
+            const auto& [var, expr] = loop.updates[i];
+            std::cout << var << " = " << expr;
+            if (i + 1 < loop.updates.size())
+                std::cout << ", ";
+        }
+    } else {
+        std::cout << "(no update)";
+    }
+
+    std::cout << "\n";
+
+    // Печать области видимости и тела
     printScope(loop.body.localScope, indent);
     printInstructionList(loop.body.instructions, indent + 1);
 }

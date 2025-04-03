@@ -1,7 +1,7 @@
 EXECUTABLE = parser
 
 CXX = g++
-CXXFLAGS = -std=c++17 -I /opt/homebrew/include/antlr4-runtime
+CXXFLAGS = -std=c++17
 
 # пути к ANTLR runtime
 INCLUDES = -Iexternal/antlr4-runtime -Iexternal/antlr4-runtime/src
@@ -12,20 +12,16 @@ SRC = main.cpp \
       small_c_grammarParser.cpp \
       small_c_grammarVisitor.cpp \
       small_c_grammarBaseVisitor.cpp \
+	  CPreprocess.cpp \
       ASTBuilder.cpp \
       ASTPrinter.cpp \
       ASTContext.cpp
 
-RUNTIME_SRC := \
-    $(wildcard external/antlr4-runtime/src/*.cpp) \
-    $(wildcard external/antlr4-runtime/src/tree/*.cpp) \
-    $(wildcard external/antlr4-runtime/src/misc/*.cpp) \
-    $(wildcard external/antlr4-runtime/src/atn/*.cpp) \
-    $(wildcard external/antlr4-runtime/src/dfa/*.cpp)
+RUNTIME_SRC := $(shell find external/antlr4-runtime/src -name '*.cpp')
 
 ALL_SRC = $(SRC) $(RUNTIME_SRC)
 
-OBJ = $(SRC:.cpp=.o)
+OBJ = $(ALL_SRC:.cpp=.o)
 
 # сборка проекта
 all: $(EXECUTABLE)

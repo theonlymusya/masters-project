@@ -33,10 +33,10 @@ struct ScopedBlock {
 };
 
 struct LoopInfo {
-    std::string varName;
-    std::string start;
-    std::string end;
-    std::string step;
+    std::string initVarName;
+    std::string initValue;
+    std::string condition;                                     // условие цикла
+    std::vector<std::pair<std::string, std::string>> updates;  // var = expr
     ScopedBlock body;
 };
 
@@ -60,6 +60,7 @@ struct IndexedVariable {
 struct AssignmentInfo {
     IndexedVariable leftVar;
     std::vector<IndexedVariable> rightVars;
+    std::string value;
 };
 
 struct Instruction {

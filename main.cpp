@@ -21,7 +21,7 @@ int main(int argc, const char* argv[]) {
     std::string input_filename = std::string(argv[1]);
 
     CPreprocessor preprocessor(input_filename);
-    preprocessor.expand_compound_assignments();
+    preprocessor.expand_compound_assignments_and_increments();
     preprocessor.print_file();
 
     std::string file = preprocessor.get_output_file();
@@ -40,18 +40,17 @@ int main(int argc, const char* argv[]) {
     small_c_grammarParser parser(&tokens);
     tree::ParseTree* tree = parser.program();
 
-    ASTPrinter printer;
-    printer.visit(tree);
+    // ASTPrinter printer;
+    // printer.visit(tree);
 
     std::cout << "\n=== AST, сгенерированное ANTLR4 ===\n";
     std::cout << tree->toStringTree(&parser) << std::endl;
-
     ASTBuilder builder;
     tree::ParseTreeWalker::DEFAULT.walk(&builder, tree);
-    ASTContext context = builder.context;
+    ASTContext context = builder.getASTContext();
 
     std::cout << "\n=== Развернутое выполнение кода ===\n";
-    context.executeInstructions();
+    context.printAST();
 
     return 0;
 }

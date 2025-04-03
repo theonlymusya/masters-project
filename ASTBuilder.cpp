@@ -2,11 +2,6 @@
 #include <cstdlib>
 #include <iostream>
 
-// вспомогательная функция для создания инструкции ASSIGNMENT из строкового выражения
-Instruction makeAssignmentInstruction(const std::string& expr) {
-    // return Instruction{InstructionType::ASSIGNMENT, expr};
-}
-
 // вспомогательная функция для открытия блока
 void ASTBuilder::beginBlock() {
     blockStack.push({});
@@ -86,10 +81,16 @@ void ASTBuilder::exitFunction(small_c_grammarParser::FunctionContext* ctx) {
 }
 
 void ASTBuilder::enterBlock(small_c_grammarParser::BlockContext* ctx) {
+    if (disableInstructionCapture)
+        return;
+
     beginBlock();
 }
 
 void ASTBuilder::exitBlock(small_c_grammarParser::BlockContext* ctx) {
+    if (disableInstructionCapture)
+        return;
+
     ScopedBlock block = endBlock();
 
     Instruction blockInstr;
@@ -169,43 +170,41 @@ AssignmentInfo ASTBuilder::buildAssignmentInfo(small_c_grammarParser::Assignment
         // std::cout << "\n=== mathExpr AST ===\n";
         // std::cout << ctx->mathExpr()->toStringTree() << "\n";
         collectIndexedVariables(ctx->mathExpr(), info.rightVars);
+        info.value = ctx->mathExpr()->getText();
     }
 
     return info;
 }
 
 void ASTBuilder::enterAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) {
+    if (disableInstructionCapture)
+        return;
+    antlr4::ParserRuleContext* parent = dynamic_cast<antlr4::ParserRuleContext*>(ctx->parent);
+
+    if (parent && (dynamic_cast<small_c_grammarParser::ForStartContext*>(parent) != nullptr ||
+                   dynamic_cast<small_c_grammarParser::ForStepExprContext*>(parent) != nullptr)) {
+        return;
+    }
+
     if (ctx->declaration()) {
         handleDeclaration(ctx);
     }
 
     AssignmentInfo assign = buildAssignmentInfo(ctx);
     addInstruction({InstructionType::ASSIGNMENT, assign});
-    astContext.printAssignment({InstructionType::ASSIGNMENT, assign}, 1);
 }
 
 void ASTBuilder::exitAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) {
     // ничего не требуется
 }
 
-// --- Инкремент/декремент ---
-void ASTBuilder::enterIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) {
-    // currentExpr = ctx->getText();
-}
-
-void ASTBuilder::exitIncDecOp(small_c_grammarParser::IncDecOpContext* ctx) {
-    // if (!insideForHeader) {
-    //     addInstruction(makeAssignmentInstruction(currentExpr));
-    // }
-    // currentExpr.clear();
-}
-
 void ASTBuilder::enterIfStatement(small_c_grammarParser::IfStatementContext* ctx) {
+    disableInstructionCapture = true;
+
     IfNode newIf;
     newIf.condition = ctx->cond->getText();
 
     ifStack.push(newIf);
-    beginBlock();
 }
 
 void ASTBuilder::handleElifChain(small_c_grammarParser::ElifChainContext* ctx, IfNode& node) {
@@ -234,8 +233,10 @@ void ASTBuilder::exitIfStatement(small_c_grammarParser::IfStatementContext* ctx)
     auto currentIf = ifStack.top();
     ifStack.pop();
 
-    auto thenBlock = endBlock();
-    currentIf.thenBlock = thenBlock;
+    beginBlock();
+    disableInstructionCapture = false;
+    antlr4::tree::ParseTreeWalker::DEFAULT.walk(this, ctx->statement());
+    currentIf.thenBlock = endBlock();
 
     if (ctx->elifChain()) {
         handleElifChain(ctx->elifChain(), currentIf);
@@ -261,52 +262,81 @@ void ASTBuilder::exitIfStatement(small_c_grammarParser::IfStatementContext* ctx)
 }
 
 void ASTBuilder::enterForStatement(small_c_grammarParser::ForStatementContext* ctx) {
+    if (disableInstructionCapture)
+        return;
     beginBlock();
-    insideForHeader = true;
+}
+
+void ASTBuilder::handleForInit(small_c_grammarParser::ForStartContext* startCtx, LoopInfo& loopInfo) {
+    // if init field is empty - do nothing
+    if (!startCtx)
+        return;
+
+    auto* assign = startCtx->assignmentOp();
+    loopInfo.initVarName = assign->varName()->getText();
+
+    if (assign->mathExpr()) {
+        loopInfo.initValue = assign->mathExpr()->getText();
+    } else {
+        // error handler
+        std::cerr << "Missing initialization value in for-loop header.\n";
+        exit(1);
+    }
+
+    if (assign->declaration()) {
+        std::string type = assign->declaration()->getText();
+        std::vector<std::string> dimSizes;
+        bool isArray = false;
+
+        if (assign->varName()->arrayDecl()) {
+            isArray = true;
+            for (auto* dimExpr : assign->varName()->arrayDecl()->mathExpr()) {
+                dimSizes.push_back(dimExpr->getText());
+            }
+        }
+        addVariable(loopInfo.initVarName, type, loopInfo.initValue, isArray, dimSizes.size(), dimSizes);
+    }
+}
+
+void ASTBuilder::handleForCondition(small_c_grammarParser::ForStopContext* stopCtx, LoopInfo& loopInfo) {
+    // if cond field is empty it's always true
+    if (!stopCtx)
+        loopInfo.condition = "1";
+    loopInfo.condition = stopCtx->getText();
+}
+
+void ASTBuilder::handleForUpdate(small_c_grammarParser::ForStepContext* stepCtx, LoopInfo& loopInfo) {
+    if (!stepCtx)
+        return;
+
+    for (auto* stepExpr : stepCtx->forStepExpr()) {
+        std::string varName = stepExpr->varName()->getText();
+        std::string rhsExpr = stepExpr->mathExpr()->getText();
+        loopInfo.updates.emplace_back(varName, rhsExpr);
+    }
 }
 
 void ASTBuilder::exitForStatement(small_c_grammarParser::ForStatementContext* ctx) {
-    // Забираем тело цикла
-    auto loopBody = endBlock();
+    if (disableInstructionCapture)
+        return;
 
-    // Считываем параметры цикла
-    std::string varName, start, end, step = "1";
+    LoopInfo loopInfo;
 
-    if (ctx->forStart() && ctx->forStart()->assignmentOp()) {
-        varName = ctx->forStart()->assignmentOp()->varName()->getText();
-        if (ctx->forStart()->assignmentOp()->mathExpr()) {
-            start = ctx->forStart()->assignmentOp()->mathExpr()->getText();
-        }
-    }
+    handleForInit(ctx->forStart(), loopInfo);
+    handleForCondition(ctx->forStop(), loopInfo);
+    handleForUpdate(ctx->forStep(), loopInfo);
 
-    if (ctx->forStop() && ctx->forStop()->mathExpr()) {
-        end = ctx->forStop()->mathExpr()->getText();
-    }
+    ScopedBlock loopBody = endBlock();
+    loopInfo.body = loopBody;
 
-    if (ctx->forStep()) {
-        if (ctx->forStep()->mathExpr()) {
-            step = ctx->forStep()->mathExpr()->getText();
-        } else {
-            std::string op = ctx->forStep()->getText();
-            step = (op.find("++") != std::string::npos) ? "1" : "-1";
-        }
-    }
-
-    Instruction forLoopInstr;
-    forLoopInstr.type = InstructionType::FOR_LOOP;
-    forLoopInstr.data = LoopInfo{varName, start, end, step, loopBody.instructions};
-    addInstruction(forLoopInstr);
-
-    insideForHeader = false;
+    Instruction loopInstr;
+    loopInstr.type = InstructionType::FOR_LOOP;
+    loopInstr.data = loopInfo;
+    addInstruction(loopInstr);
 }
 
-// --- Выражения ---
 void ASTBuilder::enterMathExpr(small_c_grammarParser::MathExprContext* ctx) {
-    // Для простоты буферизуем текст выражения.
-    // currentExpr = ctx->getText();
+    // math exptessions are handling inside other AST nodes' handler functions
 }
 
-void ASTBuilder::exitMathExpr(small_c_grammarParser::MathExprContext* ctx) {
-    // Выражения, как правило, входят в состав других инструкций, поэтому здесь просто очищаем буфер.
-    // currentExpr.clear();
-}
+void ASTBuilder::exitMathExpr(small_c_grammarParser::MathExprContext* ctx) {}
