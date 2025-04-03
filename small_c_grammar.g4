@@ -36,6 +36,10 @@ forStatement
     ;
 
 forStart 
+    : forStartExpr (',' forStartExpr)*
+    ;
+
+forStartExpr
     : assignmentOp
     ;
 

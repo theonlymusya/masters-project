@@ -49,41 +49,41 @@
 
 ASTContext::ASTContext() {
     // Инициализируем глобальную область видимости
-    pushScope();
+    // pushScope();
 }
 
-void ASTContext::pushScope() {
-    scopes.push_back({});
-}
+// void ASTContext::pushScope() {
+//     scopes.push_back({});
+// }
 
-void ASTContext::popScope() {
-    if (!scopes.empty()) {
-        scopes.pop_back();
-    }
-}
+// void ASTContext::popScope() {
+//     if (!scopes.empty()) {
+//         scopes.pop_back();
+//     }
+// }
 
-std::unordered_map<std::string, VarInfo> ASTContext::getCurrentScope() const {
-    if (!scopes.empty())
-        return scopes.back();
-    return {};
-}
+// std::unordered_map<std::string, VarInfo> ASTContext::getCurrentScope() const {
+//     if (!scopes.empty())
+//         return scopes.back();
+//     return {};
+// }
 
-void ASTContext::addVariable(const std::string& name,
-                             const std::string& type,
-                             const std::optional<std::string>& value,
-                             bool isArray,
-                             const std::vector<int>& dimensions) {
-    // if (scopes.empty()) {
-    //     pushScope();
-    // }
+// void ASTContext::addVariable(const std::string& name,
+//                              const std::string& type,
+//                              const std::optional<std::string>& value,
+//                              bool isArray,
+//                              const std::vector<int>& dimensions) {
+// if (scopes.empty()) {
+//     pushScope();
+// }
 
-    // scopes.back()[name] = VarInfo{.type = type, .value = value, .isArray = isArray, .dimensions =
-    // dimensions};
-}
+// scopes.back()[name] = VarInfo{.type = type, .value = value, .isArray = isArray, .dimensions =
+// dimensions};
+// }
 
-void ASTContext::addAssignment(const std::string& expr) {
-    // instructions.push_back({InstructionType::ASSIGNMENT, expr});
-}
+// void ASTContext::addAssignment(const std::string& expr) {
+//     // instructions.push_back({InstructionType::ASSIGNMENT, expr});
+// }
 
 // void ASTContext::addLoop(const std::string& varName,
 //                          const std::string& start,
@@ -101,88 +101,119 @@ void ASTContext::addProgram(const ScopedBlock& block) {
     instructions.push_back({InstructionType::PROGRAM, block});
 }
 
-void ASTContext::addInstruction(const Instruction& instr) {
-    instructions.push_back(instr);
-}
+// void ASTContext::addInstruction(const Instruction& instr) {
+//     instructions.push_back(instr);
+// }
 
 void ASTContext::executeInstructions() const {
-    executeInstructionList(instructions, {});
+    executeInstructionList(instructions);
 }
 
-void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs,
-                                        std::unordered_map<std::string, int> loopVars) const {
+void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) const {
     for (const auto& instr : instrs) {
         switch (instr.type) {
             case InstructionType::ASSIGNMENT:
-                // std::cout << expandVariables(std::get<std::string>(instr.data), loopVars) << "\n";
+                fillTablesRow();
                 break;
             case InstructionType::FOR_LOOP:
-                executeLoop(std::get<LoopInfo>(instr.data), loopVars);
+                executeLoop(std::get<LoopInfo>(instr.data));
                 break;
             case InstructionType::IF_STATEMENT:
-                executeIfStatement(std::get<IfStatement>(instr.data), loopVars);
+                executeIfStatement(std::get<IfStatement>(instr.data));
                 break;
             case InstructionType::MAIN_FUNC:
             case InstructionType::PROGRAM:
             case InstructionType::BLOCK: {
                 const auto& scoped = std::get<ScopedBlock>(instr.data);
-                executeInstructionList(scoped.instructions, loopVars);
+                executeInstructionList(scoped.instructions);
                 break;
             }
         }
     }
 }
 
-void ASTContext::executeLoop(const LoopInfo& loop, std::unordered_map<std::string, int> loopVars) const {
-    // std::cout << "[DEBUG] executeLoop: " << loop.varName << " from " << loop.start << " to " << loop.end
-    //           << " step " << loop.step << "\n";
+// struct ScopedBlock {
+//     std::vector<Instruction> instructions;
+//     std::unordered_map<std::string, VarInfo> localScope;
+// };
 
-    // int start = std::stoi(loop.start);
-    // int end = std::stoi(loop.end);
-    // int step = std::stoi(loop.step);
+// struct LoopItersInfo {
+//     std::string startValue;
+//     std::string updateValue;
+// };
 
-    // for (int i = start; i < end; i += step) {
-    //     loopVars[loop.varName] = i;
-    //     executeInstructionList(loop.body.instructions, loopVars);
-    // }
-}
+// struct LoopInfo {
+//     std::unordered_map<std::string, LoopItersInfo> varNames;
+//     std::string condition;
+//     ScopedBlock body;
+// };
 
-void ASTContext::executeIfStatement(const IfStatement& ifStmt,
-                                    std::unordered_map<std::string, int> loopVars) const {
-    // Для демонстрации считаем, что условие – число, отличное от 0 означает true.
-    int condValue = std::stoi(expandVariables(ifStmt.condition, loopVars));
-    if (condValue) {
-        executeInstructionList(ifStmt.thenBlock.instructions, loopVars);
-    } else {
-        bool executedElseIf = false;
-        for (const auto& branch : ifStmt.elseIfBranches) {
-            int elifVal = std::stoi(expandVariables(branch.condition, loopVars));
-            if (elifVal) {
-                executeInstructionList(branch.block.instructions, loopVars);
-                executedElseIf = true;
-                break;
-            }
-        }
-        if (!executedElseIf && !ifStmt.elseBlock.instructions.empty()) {
-            executeInstructionList(ifStmt.elseBlock.instructions, loopVars);
-        }
+void ASTContext::executeLoop(const LoopInfo& loop) const {
+    std::unordered_map<std::string, int> it_val;
+    for (auto& [varName, varInfo] : loop.varNames)
+        it_val[varName] = (int)calc_expr(varInfo.startValue);
+    // + внести имена и значения переменных в текущую область видимости
+
+    for (;;) {
+        if (!calc_expr(loop.condition))
+            break;
+        executeInstructionList(loop.body.instructions);
+        for (auto& [varName, varInfo] : loop.varNames)
+            it_val[varName] = (int)calc_expr(varInfo.updateValue);
+        // обновить значения переменнх в области видимости
     }
 }
 
-std::string ASTContext::expandVariables(const std::string& expr,
-                                        const std::unordered_map<std::string, int>& loopVars) const {
-    std::string result = expr;
-    for (const auto& [var, val] : loopVars) {
-        size_t pos = 0;
-        std::string varPattern = var;
-        std::string valStr = std::to_string(val);
-        while ((pos = result.find(varPattern, pos)) != std::string::npos) {
-            result.replace(pos, varPattern.size(), valStr);
-            pos += valStr.size();
-        }
-    }
-    return result;
+// struct IndexedVariable {
+//     std::string name;
+//     std::vector<std::string> indices;
+// };
+
+// struct AssignmentInfo {
+//     IndexedVariable leftVar;
+//     std::vector<IndexedVariable> rightVars;
+//     std::string value;
+// };
+void ASTContext::executeAssignment() const {
+    // изучаем переменную слева
+    // создаём для неё новую таблицу
 }
+
+void ASTContext::executeIfStatement(const IfStatement& ifStmt) const {
+    //     // Для демонстрации считаем, что условие – число, отличное от 0 означает true.
+    //     int condValue = std::stoi(expandVariables(ifStmt.condition, loopVars));
+    //     if (condValue) {
+    //         executeInstructionList(ifStmt.thenBlock.instructions, loopVars);
+    //     } else {
+    //         bool executedElseIf = false;
+    //         for (const auto& branch : ifStmt.elseIfBranches) {
+    //             int elifVal = std::stoi(expandVariables(branch.condition, loopVars));
+    //             if (elifVal) {
+    //                 executeInstructionList(branch.block.instructions, loopVars);
+    //                 executedElseIf = true;
+    //                 break;
+    //             }
+    //         }
+    //         if (!executedElseIf && !ifStmt.elseBlock.instructions.empty()) {
+    //             executeInstructionList(ifStmt.elseBlock.instructions, loopVars);
+    //         }
+    //     }
+}
+
+// std::string ASTContext::expandVariables(const std::string& expr,
+//                                         const std::unordered_map<std::string, int>& loopVars) const {
+//     std::string result = expr;
+//     for (const auto& [var, val] : loopVars) {
+//         size_t pos = 0;
+//         std::string varPattern = var;
+//         std::string valStr = std::to_string(val);
+//         while ((pos = result.find(varPattern, pos)) != std::string::npos) {
+//             result.replace(pos, varPattern.size(), valStr);
+//             pos += valStr.size();
+//         }
+//     }
+//     return result;
+// }
 
 void ASTContext::printAST() const {
     std::cout << "AST Structure:\n";
@@ -289,14 +320,20 @@ void ASTContext::printAssignment(const Instruction& instr, int indent = 1) const
     std::cout << "\n";
 }
 
-void ASTContext::printForLoop(const Instruction& instr, int indent = 1) const {
+void ASTContext::printForLoop(const Instruction& instr, int indent) const {
     std::string ind(indent * 2, ' ');
     const auto& loop = std::get<LoopInfo>(instr.data);
 
-    // Печать инициализации
     std::cout << ind << "FOR_LOOP: ";
-    if (!loop.initVarName.empty()) {
-        std::cout << loop.initVarName << " = " << loop.initValue;
+
+    // Печать инициализации
+    if (!loop.varNames.empty()) {
+        size_t count = 0;
+        for (const auto& [var, info] : loop.varNames) {
+            std::cout << var << " = " << info.startValue;
+            if (++count < loop.varNames.size())
+                std::cout << ", ";
+        }
     } else {
         std::cout << "(no initialization)";
     }
@@ -311,14 +348,17 @@ void ASTContext::printForLoop(const Instruction& instr, int indent = 1) const {
 
     // Печать обновлений
     std::cout << "; ";
-    if (!loop.updates.empty()) {
-        for (size_t i = 0; i < loop.updates.size(); ++i) {
-            const auto& [var, expr] = loop.updates[i];
-            std::cout << var << " = " << expr;
-            if (i + 1 < loop.updates.size())
+    size_t updateCount = 0;
+    bool hasUpdates = false;
+    for (const auto& [var, info] : loop.varNames) {
+        if (!info.updateValue.empty()) {
+            std::cout << var << " = " << info.updateValue;
+            if (++updateCount < loop.varNames.size())
                 std::cout << ", ";
+            hasUpdates = true;
         }
-    } else {
+    }
+    if (!hasUpdates) {
         std::cout << "(no update)";
     }
 

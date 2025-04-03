@@ -32,11 +32,14 @@ struct ScopedBlock {
     std::unordered_map<std::string, VarInfo> localScope;
 };
 
+struct LoopItersInfo {
+    std::string startValue;
+    std::string updateValue;
+};
+
 struct LoopInfo {
-    std::string initVarName;
-    std::string initValue;
-    std::string condition;                                     // условие цикла
-    std::vector<std::pair<std::string, std::string>> updates;  // var = expr
+    std::unordered_map<std::string, LoopItersInfo> varNames;
+    std::string condition;
     ScopedBlock body;
 };
 
@@ -95,8 +98,8 @@ class ASTContext {
     std::unordered_map<std::string, VarInfo> getCurrentScope() const;
 
     // Управление областями видимости: создание и удаление scope
-    void pushScope();
-    void popScope();
+    // void pushScope();
+    // void popScope();
 
     // Выполнение инструкций (демонстрация обработки)
     void executeInstructions() const;
@@ -118,10 +121,9 @@ class ASTContext {
     std::vector<std::unordered_map<std::string, VarInfo>> scopes;
 
     // Вспомогательные методы для исполнения инструкций
-    void executeInstructionList(const std::vector<Instruction>& instrs,
-                                std::unordered_map<std::string, int> loopVars) const;
-    void executeLoop(const LoopInfo& loop, std::unordered_map<std::string, int> loopVars) const;
-    void executeIfStatement(const IfStatement& ifStmt, std::unordered_map<std::string, int> loopVars) const;
-    std::string expandVariables(const std::string& expr,
-                                const std::unordered_map<std::string, int>& loopVars) const;
+    void executeInstructionList(const std::vector<Instruction>& instrs) const;
+    void executeLoop(const LoopInfo& loop) const;
+    void executeIfStatement(const IfStatement& ifStmt) const;
+    // std::string expandVariables(const std::string& expr,
+    //                             const std::unordered_map<std::string, int>& loopVars) const;
 };

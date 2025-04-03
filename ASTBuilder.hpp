@@ -71,6 +71,7 @@ class ASTBuilder : public small_c_grammarBaseListener {
     // std::unordered_map<std::string, VarInfo> getCurrentScope() const;
 
     // вспомогательные функции обхода дерева и сбора информации
+
     void beginBlock();
     ScopedBlock endBlock();
 

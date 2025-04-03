@@ -272,29 +272,35 @@ void ASTBuilder::handleForInit(small_c_grammarParser::ForStartContext* startCtx,
     if (!startCtx)
         return;
 
-    auto* assign = startCtx->assignmentOp();
-    loopInfo.initVarName = assign->varName()->getText();
+    for (auto* startExpr : startCtx->forStartExpr()) {
+        auto* assign = startExpr->assignmentOp();
 
-    if (assign->mathExpr()) {
-        loopInfo.initValue = assign->mathExpr()->getText();
-    } else {
-        // error handler
-        std::cerr << "Missing initialization value in for-loop header.\n";
-        exit(1);
-    }
+        std::string varName = assign->varName()->getText();
+        std::string varStartValue;
 
-    if (assign->declaration()) {
-        std::string type = assign->declaration()->getText();
-        std::vector<std::string> dimSizes;
-        bool isArray = false;
-
-        if (assign->varName()->arrayDecl()) {
-            isArray = true;
-            for (auto* dimExpr : assign->varName()->arrayDecl()->mathExpr()) {
-                dimSizes.push_back(dimExpr->getText());
-            }
+        if (assign->mathExpr()) {
+            varStartValue = assign->mathExpr()->getText();
+        } else {
+            // error handler
+            std::cerr << "Missing initialization value in for-loop header.\n";
+            exit(1);
         }
-        addVariable(loopInfo.initVarName, type, loopInfo.initValue, isArray, dimSizes.size(), dimSizes);
+
+        if (assign->declaration()) {
+            std::string type = assign->declaration()->getText();
+            std::vector<std::string> dimSizes;
+            bool isArray = false;
+
+            if (assign->varName()->arrayDecl()) {
+                isArray = true;
+                for (auto* dimExpr : assign->varName()->arrayDecl()->mathExpr()) {
+                    dimSizes.push_back(dimExpr->getText());
+                }
+            }
+            addVariable(varName, type, varStartValue, isArray, dimSizes.size(), dimSizes);
+        }
+
+        loopInfo.varNames[varName].startValue = varStartValue;
     }
 }
 
@@ -311,8 +317,9 @@ void ASTBuilder::handleForUpdate(small_c_grammarParser::ForStepContext* stepCtx,
 
     for (auto* stepExpr : stepCtx->forStepExpr()) {
         std::string varName = stepExpr->varName()->getText();
-        std::string rhsExpr = stepExpr->mathExpr()->getText();
-        loopInfo.updates.emplace_back(varName, rhsExpr);
+        std::string updateExpr = stepExpr->mathExpr()->getText();
+
+        loopInfo.varNames[varName].updateValue = updateExpr;
     }
 }
 
