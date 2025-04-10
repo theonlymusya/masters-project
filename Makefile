@@ -12,10 +12,12 @@ SRC = main.cpp \
       small_c_grammarParser.cpp \
       small_c_grammarVisitor.cpp \
       small_c_grammarBaseVisitor.cpp \
-	  CPreprocess.cpp \
+	CPreprocess.cpp \
       ASTBuilder.cpp \
-      ASTPrinter.cpp \
-      ASTContext.cpp
+      InstrPrinter.cpp \
+      ASTContext.cpp \
+      CalcExpr.cpp \
+      external/tinyExpr/tinyexpr.cpp
 
 RUNTIME_SRC := $(shell find external/antlr4-runtime/src -name '*.cpp')
 
