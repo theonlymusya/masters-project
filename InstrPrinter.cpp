@@ -115,11 +115,11 @@ void InstructionsPrinter::printForLoop(const Instruction& instr, int indent) con
     std::cout << ind << "FOR_LOOP: ";
 
     // Печать инициализации
-    if (!loop.varNames.empty()) {
+    if (!loop.itName_startVal.empty()) {
         size_t count = 0;
-        for (const auto& [var, info] : loop.varNames) {
-            std::cout << var << " = " << info.startValue;
-            if (++count < loop.varNames.size())
+        for (const auto& [var, val] : loop.itName_startVal) {
+            std::cout << var << " = " << val;
+            if (++count < loop.itName_startVal.size())
                 std::cout << ", ";
         }
     } else {
@@ -138,10 +138,10 @@ void InstructionsPrinter::printForLoop(const Instruction& instr, int indent) con
     std::cout << "; ";
     size_t updateCount = 0;
     bool hasUpdates = false;
-    for (const auto& [var, info] : loop.varNames) {
-        if (!info.updateValue.empty()) {
-            std::cout << var << " = " << info.updateValue;
-            if (++updateCount < loop.varNames.size())
+    if (!loop.itName_updateVal.empty()) {
+        for (const auto& [var, val] : loop.itName_updateVal) {
+            std::cout << var << " = " << val;
+            if (++updateCount < loop.itName_updateVal.size())
                 std::cout << ", ";
             hasUpdates = true;
         }

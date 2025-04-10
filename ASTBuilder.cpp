@@ -304,7 +304,7 @@ void ASTBuilder::handleForInit(small_c_grammarParser::ForStartContext* startCtx,
             addVariable(varName, type, varStartValue, isArray, dimSizes.size(), dimSizes);
         }
 
-        loopInfo.varNames[varName].startValue = varStartValue;
+        loopInfo.itName_startVal[varName] = varStartValue;
     }
 }
 
@@ -323,7 +323,7 @@ void ASTBuilder::handleForUpdate(small_c_grammarParser::ForStepContext* stepCtx,
         std::string varName = stepExpr->varName()->getText();
         std::string updateExpr = stepExpr->mathExpr()->getText();
 
-        loopInfo.varNames[varName].updateValue = updateExpr;
+        loopInfo.itName_updateVal[varName] = updateExpr;
     }
 }
 

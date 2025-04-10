@@ -26,13 +26,14 @@ struct ScopedBlock {
     std::unordered_map<std::string, VarInfo> localScope;
 };
 
-struct LoopItersInfo {
-    std::string startValue;
-    std::string updateValue;
-};
+// struct LoopItersInfo {
+//     std::string startValue;
+//     std::string updateValue;
+// };
 
 struct LoopInfo {
-    std::unordered_map<std::string, LoopItersInfo> varNames;
+    std::unordered_map<std::string, std::string> itName_startVal;
+    std::unordered_map<std::string, std::string> itName_updateVal;
     std::string condition;
     ScopedBlock body;
 };
