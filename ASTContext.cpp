@@ -176,15 +176,15 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     // внутренняя переменная принимает значения 6,..,n-1
     // такие переменные уже лежат в loop local scope
 
-    std::unordered_map<std::string, iterValType> iterValues;  // мапа локальных итераторов текущего цикла
+    // std::unordered_map<std::string, iterValType> iterValues;  // мапа локальных итераторов текущего цикла
 
     // по идее getFullScope() должен взять i j k из loop_local_scope, если есть declaration в заголовке цикла,
     // из внешнего scope, если не было declaration
-    auto all_visible_vars = getFullScope();
-    auto all_visible_vars_val = expr_utils::extractValues(all_visible_vars);
+    // auto all_visible_vars = getFullScope();
+    // auto all_visible_vars_val = expr_utils::extractValues(all_visible_vars);
 
-    for (const auto& [varName, val] : all_visible_vars_val)
-        std::cout << varName << " = " << val << std::endl;
+    // for (const auto& [varName, val] : all_visible_vars_val)
+    //     std::cout << varName << " = " << val << std::endl;
 
     // стартовые значения вычислились только для итераторов
     // которые объявлены в поле инициализации =>
@@ -196,10 +196,10 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     // можно было вычислить? блин а как это по твоему делать?
     // а ну не, это не предварительная операция должна
     // быть, а просто по мере обхода ты же обрабатываешь assignment, так что вот как раз
-    for (const auto& [varName, iterInfo] : loop.varNames) {
-        double start = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.startValue, all_visible_vars_val);
-        iterValues[varName] = start;
-    }
+    // for (const auto& [varName, iterInfo] : loop.varNames) {
+    //     double start = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.startValue,
+    //     all_visible_vars_val); iterValues[varName] = start;
+    // }
 
     // 2. готовим отдельную область с локальными переменными-итераторами и их значениями
     // т. о. изменения значений не будут касаться внешних переменных
@@ -212,59 +212,111 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     // for (int i = 6; i < n; i++)
     // а при popScope по завершение цикла i снова станет равна 0
 
-    std::unordered_map<std::string, VarInfo> iterScope;  // область видимости итераторов
+    // std::unordered_map<std::string, VarInfo> iterScope;  // область видимости итераторов
 
-    for (const auto& [varName, val] : iterValues) {
-        auto it = cur_scope.find(varName);
-        if (it != cur_scope.end()) {
-            scope[varName] = it->second;
-            scope[varName].value = std::to_string((int)val);
+    // for (const auto& [varName, val] : iterValues) {
+    //     auto it = cur_scope.find(varName);
+    //     if (it != cur_scope.end()) {
+    //         scope[varName] = it->second;
+    //         scope[varName].value = std::to_string((int)val);
+    //     } else {
+    //         scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
+    //     }
+    // }
+    // pushScope(scope);
+
+    // // 2. Начинаем итерации
+    // while (true) {
+    //     std::cout << "\n--- Новая итерация цикла ---\n";
+
+    //     // 2.1 Получаем объединённую область видимости
+    //     auto scope = getFullCurScope();
+
+    //     // 2.2 Добавляем текущие значения итераторов, если они ещё не задекларированы
+    //     for (const auto& [varName, val] : iterValues) {
+    //         std::cout << "  Итератор " << varName << " = " << val << "\n";
+    //         auto it = scope.find(varName);
+    //         if (it != scope.end()) {
+    //             it->second.value = std::to_string((int)val);
+    //         } else {
+    //             scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
+    //         }
+    //     }
+
+    //     std::cout << "  Условие: " << loop.condition << "\n";
+
+    //     // 2.3 Проверяем условие
+    //     double cond =
+    //         ExpressionCalculator::evaluateWithTinyExpr(loop.condition, expr_utils::extractValues(scope));
+    //     std::cout << "  Значение условия: " << cond << "\n";
+    //     if (!cond)
+    //         break;
+
+    //     // 2.4 Добавляем scope и исполняем тело
+    //     pushScope(scope);
+    //     pushScope(loop.body.localScope);
+    //     executeInstructionList(loop.body.instructions);
+    //     popScope();  // тело
+    //     popScope();  // итераторы
+
+    //     // 2.5 Обновляем итераторы
+    //     for (const auto& [varName, iterInfo] : loop.varNames) {
+    //         double updated = ExpressionCalculator::evaluateWithTinyExpr(
+    //             iterInfo.updateValue, expr_utils::extractValues(getFullCurScope()));
+    //         std::cout << "  Обновление " << varName << " = " << updated << "\n";
+    //         iterValues[varName] = updated;
+    //     }
+    // }
+
+    // 1. Получаем полную текущую область (для вычислений)
+    auto visibleVarsReadMod = getFullScope();
+    auto visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
+    auto visibleVarsWriteMod = getFullScopeForChanges();  // карта {имя → VarInfo*}
+
+    // 2. Вычисляем стартовые значения итераторов
+    for (const auto& [varName, iterInfo] : loop.varNames) {
+        double start = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.startValue, visibleVarsVal);
+        //.count = 1, если в map есть ключ varName
+        if (visibleVarsWriteMod.count(varName)) {
+            auto* var = visibleVarsWriteMod[varName];
+            var->value = std::to_string((int)start);
+            var->numericVal = start;
         } else {
-            scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
+            std::cerr << "[WARNING] Variable " << varName << " was not found for initialization\n";
         }
     }
-    pushScope(scope);
 
-    // 2. Начинаем итерации
-    while (true) {
+    for (;;) {
         std::cout << "\n--- Новая итерация цикла ---\n";
 
-        // 2.1 Получаем объединённую область видимости
-        auto scope = getFullCurScope();
-
-        // 2.2 Добавляем текущие значения итераторов, если они ещё не задекларированы
-        for (const auto& [varName, val] : iterValues) {
-            std::cout << "  Итератор " << varName << " = " << val << "\n";
-            auto it = scope.find(varName);
-            if (it != scope.end()) {
-                it->second.value = std::to_string((int)val);
-            } else {
-                scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
-            }
-        }
+        visibleVarsReadMod = getFullScope();
+        visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
 
         std::cout << "  Условие: " << loop.condition << "\n";
-
-        // 2.3 Проверяем условие
-        double cond =
-            ExpressionCalculator::evaluateWithTinyExpr(loop.condition, expr_utils::extractValues(scope));
+        double cond = ExpressionCalculator::evaluateWithTinyExpr(loop.condition, visibleVarsVal);
         std::cout << "  Значение условия: " << cond << "\n";
+
         if (!cond)
             break;
 
-        // 2.4 Добавляем scope и исполняем тело
-        pushScope(scope);
-        pushScope(loop.body.localScope);
         executeInstructionList(loop.body.instructions);
-        popScope();  // тело
-        popScope();  // итераторы
 
-        // 2.5 Обновляем итераторы
+        // 4. Обновление значений итераторов
+        visibleVarsReadMod = getFullScope();
+        visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
+        visibleVarsWriteMod = getFullScopeForChanges();
+
         for (const auto& [varName, iterInfo] : loop.varNames) {
-            double updated = ExpressionCalculator::evaluateWithTinyExpr(
-                iterInfo.updateValue, expr_utils::extractValues(getFullCurScope()));
+            double updated = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.updateValue, visibleVarsVal);
             std::cout << "  Обновление " << varName << " = " << updated << "\n";
-            iterValues[varName] = updated;
+
+            if (visibleVarsWriteMod.count(varName)) {
+                auto* var = visibleVarsWriteMod[varName];
+                var->value = std::to_string((int)updated);
+                var->numericVal = updated;
+            } else {
+                std::cerr << "[WARNING] Variable " << varName << " was not found for updating\n";
+            }
         }
     }
 }
@@ -280,7 +332,7 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 //     std::string value;
 // };
 void ASTContext::executeAssignment(const AssignmentInfo& info) {
-    std::unordered_map<std::string, VarInfo> scope = this->getFullCurScope();
+    std::unordered_map<std::string, VarInfo> scope = this->getFullScope();
     auto values = expr_utils::extractValues(scope);
 
     // Вычисляем индекс lhs
