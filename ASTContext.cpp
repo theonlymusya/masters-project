@@ -6,127 +6,84 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-// #include "exprtk.hpp"
-
-// double evaluateExpression(const std::string& expr, const std::unordered_map<std::string, double>&
-// variables) {
-//     typedef exprtk::symbol_table<double> symbol_table_t;
-//     typedef exprtk::expression<double> expression_t;
-//     typedef exprtk::parser<double> parser_t;
-
-//     symbol_table_t symbol_table;
-
-//     // локальное копирование, т.к. exprtk требует неконстантные double&
-//     std::unordered_map<std::string, double> variableCopies = variables;
-
-//     for (auto& [name, value] : variableCopies) {
-//         symbol_table.add_variable(name, value);
-//     }
-
-//     expression_t expression;
-//     expression.register_symbol_table(symbol_table);
-
-//     parser_t parser;
-//     if (!parser.compile(expr, expression)) {
-//         // Соберём подробное сообщение об ошибке
-//         std::ostringstream oss;
-//         oss << "[ExprTk ERROR] Не удалось разобрать выражение: '" << expr << "'\n";
-//         oss << "Причина: " << parser.error() << "\n";
-
-//         // Выведем информацию по каждой ошибке парсера (если есть)
-//         for (std::size_t i = 0; i < parser.error_count(); ++i) {
-//             exprtk::parser_error::type error = parser.get_error(i);
-//             oss << "  [" << i << "] " << error.diagnostic << " @ " << error.token.position << " near '"
-//                 << error.token.value << "'\n";
-//         }
-
-//         // Бросим исключение с подробностями
-//         throw std::runtime_error(oss.str());
-//     }
-
-//     return expression.value();
-// }
 
 ASTContext::ASTContext() {
     // Инициализируем глобальную область видимости
     // pushScope();
 }
 
-// void ASTContext::pushScope() {
-//     scopes.push_back({});
-// }
-
-// void ASTContext::popScope() {
-//     if (!scopes.empty()) {
-//         scopes.pop_back();
-//     }
-// }
-
-// std::unordered_map<std::string, VarInfo> ASTContext::getCurrentScope() const {
-//     if (!scopes.empty())
-//         return scopes.back();
-//     return {};
-// }
-
-// void ASTContext::addVariable(const std::string& name,
-//                              const std::string& type,
-//                              const std::optional<std::string>& value,
-//                              bool isArray,
-//                              const std::vector<int>& dimensions) {
-// if (scopes.empty()) {
-//     pushScope();
-// }
-
-// scopes.back()[name] = VarInfo{.type = type, .value = value, .isArray = isArray, .dimensions =
-// dimensions};
-// }
-
-// void ASTContext::addAssignment(const std::string& expr) {
-//     // instructions.push_back({InstructionType::ASSIGNMENT, expr});
-// }
-
-// void ASTContext::addLoop(const std::string& varName,
-//                          const std::string& start,
-//                          const std::string& end,
-//                          const std::string& step,
-//                          const ScopedBlock& body) {
-//     instructions.push_back({InstructionType::FOR_LOOP, LoopInfo{varName, start, end, step, body}});
-// }
-
-// void ASTContext::addIfStatement(const IfStatement& ifStmt) {
-//     instructions.push_back({InstructionType::IF_STATEMENT, ifStmt});
-// }
-
 void ASTContext::addProgram(const ScopedBlock& block) {
     instructions.push_back({InstructionType::PROGRAM, block});
 }
 
-// void ASTContext::addInstruction(const Instruction& instr) {
-//     instructions.push_back(instr);
-// }
+void ASTContext::pushScope(const std::unordered_map<std::string, VarInfo>& scope) {
+    scopeStack.push_back(scope);
+}
 
-void ASTContext::executeInstructions() const {
+void ASTContext::popScope() {
+    if (!scopeStack.empty()) {
+        scopeStack.pop_back();
+    } else {
+        std::cerr << "[ERROR] Scope stack underflow!\n";
+    }
+}
+
+std::unordered_map<std::string, VarInfo> ASTContext::getFullScope() const {
+    std::unordered_map<std::string, VarInfo> result;
+
+    for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
+        for (const auto& [name, info] : *it) {
+            result.insert({name, info});
+        }
+    }
+
+    return result;
+}
+
+std::unordered_map<std::string, VarInfo*> ASTContext::getFullScopeForChanges() {
+    std::unordered_map<std::string, VarInfo*> result;
+
+    for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
+        for (auto& [name, info] : *it) {
+            if (!result.count(name)) {
+                result[name] = &info;
+            }
+        }
+    }
+
+    return result;
+}
+
+void ASTContext::executeInstructions() {
     executeInstructionList(instructions);
 }
 
-void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) const {
+void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) {
     for (const auto& instr : instrs) {
         switch (instr.type) {
-            case InstructionType::ASSIGNMENT:
-                fillTablesRow();
+            case InstructionType::ASSIGNMENT: {
+                // заполнение таблицы
+                executeAssignment(std::get<AssignmentInfo>(instr.data));
                 break;
-            case InstructionType::FOR_LOOP:
+            }
+            case InstructionType::FOR_LOOP: {
+                const auto& loop = std::get<LoopInfo>(instr.data);
+                pushScope(loop.body.localScope);
                 executeLoop(std::get<LoopInfo>(instr.data));
+                popScope();
                 break;
-            case InstructionType::IF_STATEMENT:
+            }
+            case InstructionType::IF_STATEMENT: {
                 executeIfStatement(std::get<IfStatement>(instr.data));
                 break;
+            }
             case InstructionType::MAIN_FUNC:
             case InstructionType::PROGRAM:
             case InstructionType::BLOCK: {
                 const auto& scoped = std::get<ScopedBlock>(instr.data);
+                pushScope(scoped.localScope);
                 executeInstructionList(scoped.instructions);
-                break;
+                popScope();
             }
         }
     }
@@ -148,19 +105,167 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) 
 //     ScopedBlock body;
 // };
 
-void ASTContext::executeLoop(const LoopInfo& loop) const {
-    std::unordered_map<std::string, int> it_val;
-    for (auto& [varName, varInfo] : loop.varNames)
-        it_val[varName] = (int)calc_expr(varInfo.startValue);
-    // + внести имена и значения переменных в текущую область видимости
+void ASTContext::executeLoop(const LoopInfo& loop) {
+    // ПЛАН
 
-    for (;;) {
-        if (!calc_expr(loop.condition))
+    // Предположения на которых работает функция
+    // 0.0. Считаем, что ЗНАЧЕНИЯ внешних переменных вычислены
+    // 0.1. Считаем, что мы находимся в ScopedBlock цикла for, и там лежат имена переменных-итераторов ТОЛЬКО!
+    // если в заголовке они были задекларированы (должно быть так при правильной работе)
+    // 0.2. Считаем, что мы выходим из ScopedBlock цикла for сразу после выполнения текущей функции
+
+    // Инициализация стартовых значений
+    // 1.0. Выполняем функции getFullScopeForChanges(), получая ссылки на актуальные переменные
+    // 1.1. Выполняем функцию getFullScope(), получая константные ссылки на переменные, чтобы превратить их в
+    // карту {имя : значение}, чтобы засунуть в функцию для вычислений
+    // 1.2. Присваиваем новые стартовые значения из заголовка цикла, если такие есть
+    // (int i = 6 или i = 6 в поле инициализации)
+    // 1.2. (по идее в случае int i = 6 должна измениться переменная из ScopedBlock цикла for)
+    // 1.2. (а в случае i = 6 должна измениться переменная из одного из внешних ScopedBlock)
+
+    // Проверка условия
+    // 2.0. Повторно делаем getFullScope для получения актуальных значений переменных
+    // 2.1. На их основе выполняем вычисление Condition, и если он равен 0 -> прерываем цикл
+
+    // Выполнение тела цикла
+    // 3.0. По идее дальше вызывается executeInstrList без предварительных действий (убедиться в этом?)
+    // 3.1. Также мы предполагаем, что все изменения значений переменных, полученные в результате работы тела
+    // цикла
+    // 3.1. Должны были сохраниться в ScopedBlock цикла for и актуальные значения могут быть получены с
+    // помощью getFullScope()
+
+    // Обновление значений итераторов
+    // 4.0. Выполняем функцию getFullScope(), получая константные ссылки на переменные
+    // 4.1. В цикле идём по всем выражениям update из заголовка цикла
+    // 4.2. Используем их для вычисления новых значений update
+    // 4.3. Выполняем функции getFullScopeForChanges(), получая ссылки на актуальные переменные
+    // 4.4. Обновляем значения итераторов, перечисленных в поле updated цикла for
+    // (по идее обновиться должны итераторы из ScopedBlock цикла for если они были задекларированы в заголовки
+    // и итераторы из некоторого внешнего ScopedBlock в ином случае)
+
+    //  1. присваиваем старторвые значения переменным-итераторам
+    //  если таковые не объявлены в заголовке цикла (пустая область инициализации), то ничего не происходит
+    //  пример:
+    //  int i = 0;
+    //  for ( ; i < n; i++)
+
+    // если переменная объявляется ДО цикла - она лежит во внешнем scope и изменения её значений должны
+    // сохраняться если переменная повторно объявляется в заголовке цикла - она лежит и во внешнем и в
+    // локальном scope и изменения её значений внутри цикла не должны влиять на внешнюю переменную
+    // нам нужно сделать scope с итераторами, которые лежат только в локальном scope
+
+    // т. е. важен именно факт ИНИЦИАЛИЗАЦИИ
+    // ПРИМЕР 1
+    // int i = 0;
+    // for ( ; i < n; i++)
+    // и
+    // int i = 0;
+    // for ( i = 6; i < n; i++)
+    // и
+    // int i;
+    // for ( i = 6; i < n; i++)
+    // внешняя переменная примет ОДИНАКОВОЕ ЗНАЧЕНИЕ n-1
+    // стартовое значение будет отличаться!!! 0, 6, 6
+    // что связывает эти примеры?
+    // 1. i НЕ лежит в loop_local_scope
+    // 2. стартовое значение должно быть переписано! (как?)
+    // ПРИМЕР 2
+    // int i = 0;
+    // for (int i = 6; i < n; i++)
+    // внешняя переменная ОСТАНЕТСЯ при своём значении 0
+    // внутренняя переменная принимает значения 6,..,n-1
+    // такие переменные уже лежат в loop local scope
+
+    std::unordered_map<std::string, iterValType> iterValues;  // мапа локальных итераторов текущего цикла
+
+    // по идее getFullScope() должен взять i j k из loop_local_scope, если есть declaration в заголовке цикла,
+    // из внешнего scope, если не было declaration
+    auto all_visible_vars = getFullScope();
+    auto all_visible_vars_val = expr_utils::extractValues(all_visible_vars);
+
+    for (const auto& [varName, val] : all_visible_vars_val)
+        std::cout << varName << " = " << val << std::endl;
+
+    // стартовые значения вычислились только для итераторов
+    // которые объявлены в поле инициализации =>
+    // осторожно со случаем for ( ; i < n; i++)
+    // перед вычислением сondition, нужно посчитать значение i (как?...)
+    // такое ощущение что значения переменных из всех scope надо заранее посчитать, хммм
+    // в принципе да, наверное это решит проблему
+    // хорошо, то есть предполагаем, что мы уже прошлись по дереву и посчитали значения переменных, которые
+    // можно было вычислить? блин а как это по твоему делать?
+    // а ну не, это не предварительная операция должна
+    // быть, а просто по мере обхода ты же обрабатываешь assignment, так что вот как раз
+    for (const auto& [varName, iterInfo] : loop.varNames) {
+        double start = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.startValue, all_visible_vars_val);
+        iterValues[varName] = start;
+    }
+
+    // 2. готовим отдельную область с локальными переменными-итераторами и их значениями
+    // т. о. изменения значений не будут касаться внешних переменных
+
+    // по идее если есть переинициализация одной переменной во внешней области
+    // и в локальной, по функции getFullScope будет получать именно локальное значение этой переменной,
+    // потому что мы его значение тоже кладём в scope
+    // пример
+    // int i = 0;
+    // for (int i = 6; i < n; i++)
+    // а при popScope по завершение цикла i снова станет равна 0
+
+    std::unordered_map<std::string, VarInfo> iterScope;  // область видимости итераторов
+
+    for (const auto& [varName, val] : iterValues) {
+        auto it = cur_scope.find(varName);
+        if (it != cur_scope.end()) {
+            scope[varName] = it->second;
+            scope[varName].value = std::to_string((int)val);
+        } else {
+            scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
+        }
+    }
+    pushScope(scope);
+
+    // 2. Начинаем итерации
+    while (true) {
+        std::cout << "\n--- Новая итерация цикла ---\n";
+
+        // 2.1 Получаем объединённую область видимости
+        auto scope = getFullCurScope();
+
+        // 2.2 Добавляем текущие значения итераторов, если они ещё не задекларированы
+        for (const auto& [varName, val] : iterValues) {
+            std::cout << "  Итератор " << varName << " = " << val << "\n";
+            auto it = scope.find(varName);
+            if (it != scope.end()) {
+                it->second.value = std::to_string((int)val);
+            } else {
+                scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
+            }
+        }
+
+        std::cout << "  Условие: " << loop.condition << "\n";
+
+        // 2.3 Проверяем условие
+        double cond =
+            ExpressionCalculator::evaluateWithTinyExpr(loop.condition, expr_utils::extractValues(scope));
+        std::cout << "  Значение условия: " << cond << "\n";
+        if (!cond)
             break;
+
+        // 2.4 Добавляем scope и исполняем тело
+        pushScope(scope);
+        pushScope(loop.body.localScope);
         executeInstructionList(loop.body.instructions);
-        for (auto& [varName, varInfo] : loop.varNames)
-            it_val[varName] = (int)calc_expr(varInfo.updateValue);
-        // обновить значения переменнх в области видимости
+        popScope();  // тело
+        popScope();  // итераторы
+
+        // 2.5 Обновляем итераторы
+        for (const auto& [varName, iterInfo] : loop.varNames) {
+            double updated = ExpressionCalculator::evaluateWithTinyExpr(
+                iterInfo.updateValue, expr_utils::extractValues(getFullCurScope()));
+            std::cout << "  Обновление " << varName << " = " << updated << "\n";
+            iterValues[varName] = updated;
+        }
     }
 }
 
@@ -174,9 +279,33 @@ void ASTContext::executeLoop(const LoopInfo& loop) const {
 //     std::vector<IndexedVariable> rightVars;
 //     std::string value;
 // };
-void ASTContext::executeAssignment() const {
-    // изучаем переменную слева
-    // создаём для неё новую таблицу
+void ASTContext::executeAssignment(const AssignmentInfo& info) {
+    std::unordered_map<std::string, VarInfo> scope = this->getFullCurScope();
+    auto values = expr_utils::extractValues(scope);
+
+    // Вычисляем индекс lhs
+    std::ostringstream lhsIndexStr;
+    for (size_t i = 0; i < info.leftVar.indices.size(); ++i) {
+        double idxVal = ExpressionCalculator::evaluateWithTinyExpr(info.leftVar.indices[i], values);
+        lhsIndexStr << "[" << (int)idxVal << "]";
+    }
+
+    std::cout << info.leftVar.name << lhsIndexStr.str() << " = ";
+
+    for (size_t i = 0; i < info.rightVars.size(); ++i) {
+        const auto& rv = info.rightVars[i];
+
+        std::ostringstream rvIndexStr;
+        for (size_t j = 0; j < rv.indices.size(); ++j) {
+            double idxVal = ExpressionCalculator::evaluateWithTinyExpr(rv.indices[j], values);
+            rvIndexStr << "[" << (int)idxVal << "]";
+        }
+
+        std::cout << rv.name << rvIndexStr.str();
+        if (i + 1 < info.rightVars.size())
+            std::cout << ", ";
+    }
+    std::cout << std::endl;
 }
 
 void ASTContext::executeIfStatement(const IfStatement& ifStmt) const {
@@ -198,204 +327,28 @@ void ASTContext::executeIfStatement(const IfStatement& ifStmt) const {
     //             executeInstructionList(ifStmt.elseBlock.instructions, loopVars);
     //         }
     //     }
-}
 
-// std::string ASTContext::expandVariables(const std::string& expr,
-//                                         const std::unordered_map<std::string, int>& loopVars) const {
-//     std::string result = expr;
-//     for (const auto& [var, val] : loopVars) {
-//         size_t pos = 0;
-//         std::string varPattern = var;
-//         std::string valStr = std::to_string(val);
-//         while ((pos = result.find(varPattern, pos)) != std::string::npos) {
-//             result.replace(pos, varPattern.size(), valStr);
-//             pos += valStr.size();
-//         }
-//     }
-//     return result;
-// }
+    // if (evaluateCondition(expr, expr_utils::extractValues(getCombinedScope()))) {
+    //     pushScope(ifStmt.thenBlock.localScope);
+    //     executeInstructionList(ifStmt.thenBlock.instructions);
+    //     popScope();
+    //     break;
+    // }
 
-void ASTContext::printAST() const {
-    std::cout << "AST Structure:\n";
-    printInstructionList(instructions, 0);
-}
+    // bool matched = false;
+    // for (const auto& elif : ifStmt.elseIfBranches) {
+    //     if (evaluateCondition(expr, expr_utils::extractValues(getCombinedScope())) {
+    //         pushScope(elif.block.localScope);
+    //         executeInstructionList(elif.block.instructions);
+    //         popScope();
+    //         matched = true;
+    //         break;
+    //     }
+    // }
 
-void ASTContext::printInstructionList(const std::vector<Instruction>& instrs, int indent) const {
-    for (const auto& instr : instrs) {
-        switch (instr.type) {
-            case InstructionType::ASSIGNMENT:
-                printAssignment(instr, indent);
-                break;
-            case InstructionType::FOR_LOOP:
-                printForLoop(instr, indent);
-                break;
-            case InstructionType::IF_STATEMENT:
-                printIfStatement(instr, indent);
-                break;
-            case InstructionType::BLOCK:
-            case InstructionType::PROGRAM:
-            case InstructionType::MAIN_FUNC:
-                printBlock(instr, indent);
-                break;
-        }
-    }
-}
-
-void ASTContext::printScope(const std::unordered_map<std::string, VarInfo>& scope, int indent = 1) const {
-    std::string ind(indent * 2, ' ');
-    if (!scope.empty()) {
-        std::cout << ind << "  [Scope variables: \n";
-        for (const auto& [name, var] : scope) {
-            std::cout << ind << "    " << COLOR_CYAN << name << COLOR_RESET << ": " << COLOR_GREEN << var.type
-                      << COLOR_RESET;
-
-            if (var.isArray) {
-                std::cout << COLOR_YELLOW << " array[" << var.dim << "]" << COLOR_RESET;
-
-                if (!var.dimSizes.empty()) {
-                    std::cout << COLOR_MAGENTA << " sizes = [";
-                    for (size_t i = 0; i < var.dimSizes.size(); ++i) {
-                        std::cout << var.dimSizes[i];
-                        if (i + 1 < var.dimSizes.size())
-                            std::cout << ", ";
-                    }
-                    std::cout << "]" << COLOR_RESET;
-                }
-            } else {
-                std::cout << " scalar";
-            }
-
-            if (var.value.has_value()) {
-                std::cout << ", default = " << COLOR_BLUE << *var.value << COLOR_RESET;
-            }
-
-            std::cout << "\n";
-        }
-        std::cout << ind << "  ]\n";
-    }
-}
-
-void ASTContext::printAssignment(const Instruction& instr, int indent = 1) const {
-    std::string ind(indent * 2, ' ');
-    if (!std::holds_alternative<AssignmentInfo>(instr.data)) {
-        std::cout << ind << COLOR_RED << "ASSIGNMENT: [ERROR: data is not AssignmentInfo!]" << COLOR_RESET
-                  << "\n";
-        return;
-    }
-    const auto& assign = std::get<AssignmentInfo>(instr.data);
-    std::cout << ind << COLOR_BLUE << "ASSIGNMENT:" << COLOR_RESET << "\n";
-
-    std::cout << ind << "  " << COLOR_GREEN << "LHS: " << COLOR_RESET << assign.leftVar.name;
-    if (!assign.leftVar.indices.empty()) {
-        std::cout << COLOR_YELLOW << "[";
-        for (size_t i = 0; i < assign.leftVar.indices.size(); ++i) {
-            std::cout << assign.leftVar.indices[i];
-            if (i + 1 < assign.leftVar.indices.size())
-                std::cout << ", ";
-        }
-        std::cout << "]" << COLOR_RESET;
-    } else {
-        std::cout << COLOR_YELLOW << "[0]" << COLOR_RESET;
-    }
-    std::cout << "\n";
-
-    std::cout << ind << "  " << COLOR_GREEN << "RHS variables:" << COLOR_RESET << "\n";
-    for (const auto& var : assign.rightVars) {
-        std::cout << ind << "    - " << COLOR_CYAN << var.name;
-        if (!var.indices.empty()) {
-            std::cout << COLOR_YELLOW << "[";
-            for (size_t j = 0; j < var.indices.size(); ++j) {
-                std::cout << var.indices[j];
-                if (j + 1 < var.indices.size())
-                    std::cout << ", ";
-            }
-            std::cout << "]" << COLOR_RESET;
-        } else {
-            std::cout << COLOR_YELLOW << "[0]" << COLOR_RESET;
-        }
-        std::cout << "\n";
-    }
-    std::cout << ind << "  " << COLOR_GREEN << "Value: " << COLOR_RESET;
-    std::cout << COLOR_YELLOW << assign.value << COLOR_RESET;
-    std::cout << "\n";
-}
-
-void ASTContext::printForLoop(const Instruction& instr, int indent) const {
-    std::string ind(indent * 2, ' ');
-    const auto& loop = std::get<LoopInfo>(instr.data);
-
-    std::cout << ind << "FOR_LOOP: ";
-
-    // Печать инициализации
-    if (!loop.varNames.empty()) {
-        size_t count = 0;
-        for (const auto& [var, info] : loop.varNames) {
-            std::cout << var << " = " << info.startValue;
-            if (++count < loop.varNames.size())
-                std::cout << ", ";
-        }
-    } else {
-        std::cout << "(no initialization)";
-    }
-
-    // Печать условия
-    std::cout << "; ";
-    if (!loop.condition.empty()) {
-        std::cout << loop.condition;
-    } else {
-        std::cout << "(no condition)";
-    }
-
-    // Печать обновлений
-    std::cout << "; ";
-    size_t updateCount = 0;
-    bool hasUpdates = false;
-    for (const auto& [var, info] : loop.varNames) {
-        if (!info.updateValue.empty()) {
-            std::cout << var << " = " << info.updateValue;
-            if (++updateCount < loop.varNames.size())
-                std::cout << ", ";
-            hasUpdates = true;
-        }
-    }
-    if (!hasUpdates) {
-        std::cout << "(no update)";
-    }
-
-    std::cout << "\n";
-
-    // Печать области видимости и тела
-    printScope(loop.body.localScope, indent);
-    printInstructionList(loop.body.instructions, indent + 1);
-}
-
-void ASTContext::printIfStatement(const Instruction& instr, int indent = 1) const {
-    std::string ind(indent * 2, ' ');
-    const auto& ifStmt = std::get<IfStatement>(instr.data);
-    std::cout << ind << "IF: (" << ifStmt.condition << ")\n";
-    printScope(ifStmt.thenBlock.localScope, indent);
-    printInstructionList(ifStmt.thenBlock.instructions, indent + 1);
-
-    for (const auto& elif : ifStmt.elseIfBranches) {
-        std::cout << ind << "ELSE IF: (" << elif.condition << ")\n";
-        printScope(elif.block.localScope, indent);
-        printInstructionList(elif.block.instructions, indent + 1);
-    }
-
-    if (!ifStmt.elseBlock.instructions.empty()) {
-        std::cout << ind << "ELSE:\n";
-        printScope(ifStmt.elseBlock.localScope, indent);
-        printInstructionList(ifStmt.elseBlock.instructions, indent + 1);
-    }
-}
-
-void ASTContext::printBlock(const Instruction& instr, int indent = 1) const {
-    std::string ind(indent * 2, ' ');
-    const auto& scoped = std::get<ScopedBlock>(instr.data);
-    std::string label = instr.type == InstructionType::MAIN_FUNC ? "MAIN_FUNC"
-                        : instr.type == InstructionType::BLOCK   ? "BLOCK"
-                                                                 : "PROGRAM";
-    std::cout << ind << label << ":\n";
-    printScope(scoped.localScope, indent);
-    printInstructionList(scoped.instructions, indent + 1);
+    // if (!matched && !ifStmt.elseBlock.instructions.empty()) {
+    //     pushScope(ifStmt.elseBlock.localScope);
+    //     executeInstructionList(ifStmt.elseBlock.instructions);
+    //     popScope();
+    // }
 }
