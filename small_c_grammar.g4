@@ -68,7 +68,7 @@ varName
     ;
 
 arrayDecl 
-    : '[' mathExpr ']' ('[' mathExpr ']' )? ('[' mathExpr ']' )?
+    : '[' mathExpr ']' ('[' mathExpr ']' )*
     ;
 
 mathExpr
