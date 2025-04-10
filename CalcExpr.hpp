@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include "ContextStructs.hpp"
 #include "external/exprtk/exprtk.hpp"
 #include "external/tinyExpr/tinyexpr.h"
 
@@ -60,3 +61,21 @@ class MathToTinyExprConverter {
         return output;
     }
 };
+
+namespace expr_utils {
+
+// {name : VarInfo} -> {name : num_value}
+inline std::unordered_map<std::string, double> extractValues(
+    const std::unordered_map<std::string, VarInfo>& vars) {
+    std::unordered_map<std::string, double> result;
+
+    for (const auto& [name, info] : vars) {
+        if (info.numericVal.has_value()) {
+            result[name] = *info.numericVal;
+        }
+    }
+
+    return result;
+}
+
+}  // namespace expr_utils

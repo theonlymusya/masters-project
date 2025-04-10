@@ -74,19 +74,19 @@ double ExpressionCalculator::evaluateWithTinyExpr(const std::string& expression,
     return result;
 }
 
-int main(int argc, char* argv[]) {
-    std::unordered_map<std::string, double> vars = {{"x", 3}, {"y", 4}};
-    std::string expr = std::string(argv[1]);
-    std::cout << expr << std::endl;
-    std::string converted = MathToTinyExprConverter::convert(expr);
-    std::cout << converted << std::endl;
+// int main(int argc, char* argv[]) {
+//     std::unordered_map<std::string, double> vars = {{"x", 3}, {"y", 4}};
+//     std::string expr = std::string(argv[1]);
+//     std::cout << expr << std::endl;
+//     std::string converted = MathToTinyExprConverter::convert(expr);
+//     std::cout << converted << std::endl;
 
-    try {
-        double result = ExpressionCalculator::evaluateWithTinyExpr(converted, vars);
-        std::cout << "Result : " << result << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "Error : " << e.what() << std::endl;
-    }
+//     try {
+//         double result = ExpressionCalculator::evaluateWithTinyExpr(converted, vars);
+//         std::cout << "Result : " << result << std::endl;
+//     } catch (const std::exception& e) {
+//         std::cerr << "Error : " << e.what() << std::endl;
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
