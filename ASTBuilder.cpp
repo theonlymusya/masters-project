@@ -37,7 +37,7 @@ void ASTBuilder::addVariable(const std::string& name,
                              bool isArray,
                              int dim,
                              const std::vector<std::string>& dimSizes) {
-    VarInfo info{type, value, isArray, dim, dimSizes};
+    VarInfo info{type, isArray, dim, dimSizes, value};
     if (!scopeStack.empty()) {
         scopeStack.top()[name] = info;
     } else {
@@ -157,6 +157,10 @@ void ASTBuilder::collectIndexedVariables(antlr4::tree::ParseTree* node, std::vec
 
 AssignmentInfo ASTBuilder::buildAssignmentInfo(small_c_grammarParser::AssignmentOpContext* ctx) {
     AssignmentInfo info;
+
+    if (ctx->declaration()) {
+        info.declared = true;
+    }
 
     auto* leftVar = ctx->varName();
     info.leftVar.name = leftVar->ID()->getText();

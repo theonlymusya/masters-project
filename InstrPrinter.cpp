@@ -71,6 +71,8 @@ void InstructionsPrinter::printAssignment(const Instruction& instr, int indent =
     const auto& assign = std::get<AssignmentInfo>(instr.data);
     std::cout << ind << COLOR_BLUE << "ASSIGNMENT:" << COLOR_RESET << "\n";
 
+    std::cout << ind << "  " << COLOR_GREEN << "Declared: " << COLOR_RESET << assign.declared << std::endl;
+
     std::cout << ind << "  " << COLOR_GREEN << "LHS: " << COLOR_RESET << assign.leftVar.name;
     if (!assign.leftVar.indices.empty()) {
         std::cout << COLOR_YELLOW << "[";

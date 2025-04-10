@@ -21,8 +21,6 @@ struct IfNode {
     ScopedBlock elseBlock;
 };
 
-// Класс ASTBuilder наследуется от слушателя ANTLR4 и строит AST,
-// заполняя ASTContext и учитывая области видимости, вложенные блоки и ветвления if
 class ASTBuilder : public small_c_grammarBaseListener {
    public:
     ASTBuilder();
