@@ -10,13 +10,13 @@
 
 class InstructionsPrinter {
    public:
-    void printAST(const std::vector<Instruction>& instrs) const;
-    void printInstructionList(const std::vector<Instruction>& instrs, int indent) const;
-    void printScope(const std::unordered_map<std::string, VarInfo>& scope, int indent) const;
-    void printAssignment(const Instruction& instr, int indent) const;
-    void printForLoop(const Instruction& instr, int indent) const;
-    void printIfStatement(const Instruction& instr, int indent) const;
-    void printBlock(const Instruction& instr, int indent) const;
+    static void printAST(const std::vector<Instruction>& instrs);
+    static void printInstructionList(const std::vector<Instruction>& instrs, int indent = 1);
+    static void printScope(const std::unordered_map<std::string, VarInfo>& scope, int indent = 1);
+    static void printAssignment(const Instruction& instr, int indent = 1);
+    static void printForLoop(const Instruction& instr, int indent = 1);
+    static void printIfStatement(const Instruction& instr, int indent = 1);
+    static void printBlock(const Instruction& instr, int indent = 1);
 
    private:
 };

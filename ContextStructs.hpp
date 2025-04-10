@@ -10,9 +10,10 @@
 enum class InstructionType { ASSIGNMENT, FOR_LOOP, IF_STATEMENT, BLOCK, MAIN_FUNC, PROGRAM };
 
 struct VarInfo {
-    std::string type;
-    bool isArray;
+    bool visible = false;
+    bool isArray = false;
     int dim = 0;
+    std::string type;
     std::vector<std::string> dimSizes;
     std::optional<std::string> value;
     std::optional<double> numericVal;

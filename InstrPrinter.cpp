@@ -1,11 +1,11 @@
 #include "InstrPrinter.hpp"
 
-void InstructionsPrinter::printAST(const std::vector<Instruction>& instrs) const {
+void InstructionsPrinter::printAST(const std::vector<Instruction>& instrs) {
     std::cout << "AST Structure:\n";
     printInstructionList(instrs, 0);
 }
 
-void InstructionsPrinter::printInstructionList(const std::vector<Instruction>& instrs, int indent) const {
+void InstructionsPrinter::printInstructionList(const std::vector<Instruction>& instrs, int indent) {
     for (const auto& instr : instrs) {
         switch (instr.type) {
             case InstructionType::ASSIGNMENT:
@@ -26,8 +26,7 @@ void InstructionsPrinter::printInstructionList(const std::vector<Instruction>& i
     }
 }
 
-void InstructionsPrinter::printScope(const std::unordered_map<std::string, VarInfo>& scope,
-                                     int indent = 1) const {
+void InstructionsPrinter::printScope(const std::unordered_map<std::string, VarInfo>& scope, int indent) {
     std::string ind(indent * 2, ' ');
     if (!scope.empty()) {
         std::cout << ind << "  [Scope variables: \n";
@@ -52,8 +51,14 @@ void InstructionsPrinter::printScope(const std::unordered_map<std::string, VarIn
             }
 
             if (var.value.has_value()) {
-                std::cout << ", default = " << COLOR_BLUE << *var.value << COLOR_RESET;
+                std::cout << ", val = " << COLOR_BLUE << *var.value << COLOR_RESET;
             }
+
+            if (var.numericVal.has_value()) {
+                std::cout << ", numerical_val = " << COLOR_BLUE << *var.value << COLOR_RESET;
+            }
+
+            std::cout << ", visible = " << COLOR_BLUE << var.visible << COLOR_RESET;
 
             std::cout << "\n";
         }
@@ -61,7 +66,7 @@ void InstructionsPrinter::printScope(const std::unordered_map<std::string, VarIn
     }
 }
 
-void InstructionsPrinter::printAssignment(const Instruction& instr, int indent = 1) const {
+void InstructionsPrinter::printAssignment(const Instruction& instr, int indent) {
     std::string ind(indent * 2, ' ');
     if (!std::holds_alternative<AssignmentInfo>(instr.data)) {
         std::cout << ind << COLOR_RED << "ASSIGNMENT: [ERROR: data is not AssignmentInfo!]" << COLOR_RESET
@@ -108,7 +113,7 @@ void InstructionsPrinter::printAssignment(const Instruction& instr, int indent =
     std::cout << "\n";
 }
 
-void InstructionsPrinter::printForLoop(const Instruction& instr, int indent) const {
+void InstructionsPrinter::printForLoop(const Instruction& instr, int indent) {
     std::string ind(indent * 2, ' ');
     const auto& loop = std::get<LoopInfo>(instr.data);
 
@@ -157,7 +162,7 @@ void InstructionsPrinter::printForLoop(const Instruction& instr, int indent) con
     printInstructionList(loop.body.instructions, indent + 1);
 }
 
-void InstructionsPrinter::printIfStatement(const Instruction& instr, int indent = 1) const {
+void InstructionsPrinter::printIfStatement(const Instruction& instr, int indent) {
     std::string ind(indent * 2, ' ');
     const auto& ifStmt = std::get<IfStatement>(instr.data);
     std::cout << ind << "IF: (" << ifStmt.condition << ")\n";
@@ -177,7 +182,7 @@ void InstructionsPrinter::printIfStatement(const Instruction& instr, int indent 
     }
 }
 
-void InstructionsPrinter::printBlock(const Instruction& instr, int indent = 1) const {
+void InstructionsPrinter::printBlock(const Instruction& instr, int indent) {
     std::string ind(indent * 2, ' ');
     const auto& scoped = std::get<ScopedBlock>(instr.data);
     std::string label = instr.type == InstructionType::MAIN_FUNC ? "MAIN_FUNC"

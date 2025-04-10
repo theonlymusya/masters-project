@@ -4,8 +4,8 @@
 #include <string>
 #include "ASTBuilder.hpp"
 #include "ASTContext.hpp"
-#include "ASTPrinter.hpp"
 #include "CPreprocess.hpp"
+#include "InstrPrinter.hpp"
 #include "antlr4-runtime.h"
 #include "small_c_grammarLexer.h"
 #include "small_c_grammarParser.h"
@@ -50,7 +50,10 @@ int main(int argc, const char* argv[]) {
     ASTContext context = builder.getASTContext();
 
     std::cout << "\n=== Развернутое выполнение кода ===\n";
-    context.printAST();
+    InstructionsPrinter printer;
+    printer.printAST(context.get_instr());
+
+    context.executeInstructions();
 
     return 0;
 }

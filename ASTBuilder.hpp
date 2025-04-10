@@ -79,7 +79,8 @@ class ASTBuilder : public small_c_grammarBaseListener {
                      const std::optional<std::string>& value,
                      bool isArray,
                      int dim,
-                     const std::vector<std::string>& dimSizes);
+                     const std::vector<std::string>& dimSizes,
+                     bool visible = false);
 
     void handleDeclaration(small_c_grammarParser::AssignmentOpContext* ctx);
     AssignmentInfo buildAssignmentInfo(small_c_grammarParser::AssignmentOpContext* ctx);

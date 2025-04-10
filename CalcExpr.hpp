@@ -65,6 +65,7 @@ class MathToTinyExprConverter {
 namespace expr_utils {
 
 // {name : VarInfo} -> {name : num_value}
+// skips variable if it doesn't have numerical value
 inline std::unordered_map<std::string, double> extractValues(
     const std::unordered_map<std::string, VarInfo>& vars) {
     std::unordered_map<std::string, double> result;

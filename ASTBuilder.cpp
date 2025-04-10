@@ -30,14 +30,25 @@ void ASTBuilder::addInstruction(const Instruction& instr) {
     }
 }
 
+// struct VarInfo {
+//     bool visible = false;
+//     bool isArray = false;
+//     int dim = 0;
+//     std::string type;
+//     std::vector<std::string> dimSizes;
+//     std::optional<std::string> value;
+//     std::optional<double> numericVal;
+// };
+
 // вспомогательная функция накапливания переменных в текущем блоке
 void ASTBuilder::addVariable(const std::string& name,
                              const std::string& type,
                              const std::optional<std::string>& value,
                              bool isArray,
                              int dim,
-                             const std::vector<std::string>& dimSizes) {
-    VarInfo info{type, isArray, dim, dimSizes, value};
+                             const std::vector<std::string>& dimSizes,
+                             bool visible) {
+    VarInfo info{visible, isArray, dim, type, dimSizes, value};
     if (!scopeStack.empty()) {
         scopeStack.top()[name] = info;
     } else {
@@ -183,11 +194,15 @@ AssignmentInfo ASTBuilder::buildAssignmentInfo(small_c_grammarParser::Assignment
 void ASTBuilder::enterAssignmentOp(small_c_grammarParser::AssignmentOpContext* ctx) {
     if (disableInstructionCapture)
         return;
-    antlr4::ParserRuleContext* parent = dynamic_cast<antlr4::ParserRuleContext*>(ctx->parent);
 
-    if (parent && (dynamic_cast<small_c_grammarParser::ForStartContext*>(parent) != nullptr ||
-                   dynamic_cast<small_c_grammarParser::ForStepExprContext*>(parent) != nullptr)) {
-        return;
+    antlr4::ParserRuleContext* parent = dynamic_cast<antlr4::ParserRuleContext*>(ctx->parent);
+    antlr4::ParserRuleContext* grandparent =
+        parent ? dynamic_cast<antlr4::ParserRuleContext*>(parent->parent) : nullptr;
+
+    if ((parent && dynamic_cast<small_c_grammarParser::ForStartExprContext*>(parent)) ||
+        (parent && dynamic_cast<small_c_grammarParser::ForStepExprContext*>(parent)) ||
+        (grandparent && dynamic_cast<small_c_grammarParser::ForStartContext*>(grandparent))) {
+        return;  // пропускаем добавление AssignmentInfo для заголовка цикла for
     }
 
     if (ctx->declaration()) {

@@ -20,8 +20,9 @@ class ASTContext {
 
     void pushScope(const std::unordered_map<std::string, VarInfo>& scope);
     void popScope();
-    std::unordered_map<std::string, VarInfo> getFullScope() const;
-    std::unordered_map<std::string, VarInfo*> getFullScopeForChanges();
+    std::unordered_map<std::string, VarInfo> getAllVisibleVars() const;
+    std::unordered_map<std::string, VarInfo*> getAllVisibleVarsForChanges();
+    std::unordered_map<std::string, VarInfo*> getLocalVarsForChanges();
 
    private:
     std::vector<Instruction> instructions;

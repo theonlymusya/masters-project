@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include "InstrPrinter.hpp"
 
 ASTContext::ASTContext() {
     // Инициализируем глобальную область видимости
@@ -28,27 +29,44 @@ void ASTContext::popScope() {
     }
 }
 
-std::unordered_map<std::string, VarInfo> ASTContext::getFullScope() const {
+std::unordered_map<std::string, VarInfo> ASTContext::getAllVisibleVars() const {
     std::unordered_map<std::string, VarInfo> result;
 
     for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
         for (const auto& [name, info] : *it) {
-            result.insert({name, info});
+            if (info.visible && !result.count(name)) {
+                result[name] = info;
+            }
         }
     }
 
     return result;
 }
 
-std::unordered_map<std::string, VarInfo*> ASTContext::getFullScopeForChanges() {
+std::unordered_map<std::string, VarInfo*> ASTContext::getAllVisibleVarsForChanges() {
     std::unordered_map<std::string, VarInfo*> result;
 
     for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
         for (auto& [name, info] : *it) {
-            if (!result.count(name)) {
+            if (info.visible && !result.count(name)) {
                 result[name] = &info;
             }
         }
+    }
+
+    return result;
+}
+
+std::unordered_map<std::string, VarInfo*> ASTContext::getLocalVarsForChanges() {
+    if (scopeStack.empty()) {
+        throw std::runtime_error("Scope stack is empty");
+    }
+
+    std::unordered_map<std::string, VarInfo*> result;
+
+    auto& topScope = scopeStack.back();
+    for (auto& [name, info] : topScope) {
+        result[name] = &info;
     }
 
     return result;
@@ -67,10 +85,7 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) 
                 break;
             }
             case InstructionType::FOR_LOOP: {
-                const auto& loop = std::get<LoopInfo>(instr.data);
-                pushScope(loop.body.localScope);
                 executeLoop(std::get<LoopInfo>(instr.data));
-                popScope();
                 break;
             }
             case InstructionType::IF_STATEMENT: {
@@ -268,57 +283,73 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     //     }
     // }
 
-    // 1. Получаем полную текущую область (для вычислений)
-    auto visibleVarsReadMod = getFullScope();
-    auto visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
-    auto visibleVarsWriteMod = getFullScopeForChanges();  // карта {имя → VarInfo*}
+    pushScope(loop.body.localScope);
 
-    // 2. Вычисляем стартовые значения итераторов
-    for (const auto& [varName, iterInfo] : loop.varNames) {
-        double start = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.startValue, visibleVarsVal);
-        //.count = 1, если в map есть ключ varName
-        if (visibleVarsWriteMod.count(varName)) {
-            auto* var = visibleVarsWriteMod[varName];
-            var->value = std::to_string((int)start);
-            var->numericVal = start;
-        } else {
-            std::cerr << "[WARNING] Variable " << varName << " was not found for initialization\n";
+    auto localVarsWriteMod = getLocalVarsForChanges();
+
+    for (const auto& [itName, _] : loop.itName_startVal) {
+        if (localVarsWriteMod.count(itName)) {
+            localVarsWriteMod[itName]->visible = true;
         }
     }
 
-    for (;;) {
-        std::cout << "\n--- Новая итерация цикла ---\n";
+    // 1. Получаем полную текущую область (для вычислений)
+    auto visibleVarsWriteMod = getAllVisibleVarsForChanges();
+    auto visibleVarsReadMod = getAllVisibleVars();
+    auto visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
 
-        visibleVarsReadMod = getFullScope();
+    // 2. Вычисляем стартовые значения итераторов
+    for (const auto& [itName, startVal] : loop.itName_startVal) {
+        double start = ExpressionCalculator::evaluateWithTinyExpr(startVal, visibleVarsVal);
+        //.count = 1, если в map есть ключ varName
+        if (visibleVarsWriteMod.count(itName)) {
+            auto* var = visibleVarsWriteMod[itName];
+            var->value = std::to_string((int)start);
+            var->numericVal = start;
+        } else {
+            std::cerr << "[WARNING] Variable " << itName << " was not found for initialization\n";
+        }
+    }
+    for (;;) {
+        // std::cout << "\n--- Новая итерация цикла ---\n";
+
+        visibleVarsReadMod = getAllVisibleVars();
         visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
 
-        std::cout << "  Условие: " << loop.condition << "\n";
+        // std::cout << "  Условие: " << loop.condition << "\n";
         double cond = ExpressionCalculator::evaluateWithTinyExpr(loop.condition, visibleVarsVal);
-        std::cout << "  Значение условия: " << cond << "\n";
+        // std::cout << "  Значение условия: " << cond << "\n";
 
         if (!cond)
             break;
 
+        // std::cout << "  До: " << "\n";
+        // InstructionsPrinter::printScope(visibleVarsReadMod);
+
         executeInstructionList(loop.body.instructions);
+        // std::cout << "  После: " << "\n";
 
         // 4. Обновление значений итераторов
-        visibleVarsReadMod = getFullScope();
+        visibleVarsReadMod = getAllVisibleVars();
         visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
-        visibleVarsWriteMod = getFullScopeForChanges();
+        visibleVarsWriteMod = getAllVisibleVarsForChanges();
 
-        for (const auto& [varName, iterInfo] : loop.varNames) {
-            double updated = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.updateValue, visibleVarsVal);
-            std::cout << "  Обновление " << varName << " = " << updated << "\n";
+        // InstructionsPrinter::printScope(visibleVarsReadMod);
 
-            if (visibleVarsWriteMod.count(varName)) {
-                auto* var = visibleVarsWriteMod[varName];
+        for (const auto& [itName, updateVal] : loop.itName_updateVal) {
+            double updated = ExpressionCalculator::evaluateWithTinyExpr(updateVal, visibleVarsVal);
+            std::cout << "  Обновление " << itName << " = " << updated << "\n";
+
+            if (visibleVarsWriteMod.count(itName)) {
+                auto* var = visibleVarsWriteMod[itName];
                 var->value = std::to_string((int)updated);
                 var->numericVal = updated;
             } else {
-                std::cerr << "[WARNING] Variable " << varName << " was not found for updating\n";
+                std::cerr << "[WARNING] Variable " << itName << " was not found for updating\n";
             }
         }
     }
+    popScope();
 }
 
 // struct IndexedVariable {
@@ -332,24 +363,58 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 //     std::string value;
 // };
 void ASTContext::executeAssignment(const AssignmentInfo& info) {
-    std::unordered_map<std::string, VarInfo> scope = this->getFullScope();
-    auto values = expr_utils::extractValues(scope);
+    // План
+    // 1. Если текущая assignment была declared - найти левую переменную в текущей
+    // области видимости через getLocalVisibleVarsForChanges() и сделать её visible
 
-    // Вычисляем индекс lhs
+    auto localVarsWriteMod = getLocalVarsForChanges();
+
+    if (info.declared) {
+        if (localVarsWriteMod.count(info.leftVar.name)) {
+            localVarsWriteMod[info.leftVar.name]->visible = true;
+        } else {
+            std::cerr << "[WARNING] Declared variable " << info.leftVar.name
+                      << " not found in local scope for visibility update\n";
+        }
+    }
+    // 2. Для любой левой переменной попробовать вычислить её numеricalValue
+    //(если не вычисляется - продолжать работу, не заполняя поле numericalValue)
+
+    auto visibleVarsReadMod = getAllVisibleVars();
+    auto visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
+    auto visibleVarsWriteMod = getAllVisibleVarsForChanges();
+
+    if (visibleVarsWriteMod.count(info.leftVar.name)) {
+        try {
+            double value = ExpressionCalculator::evaluateWithTinyExpr(info.value, visibleVarsVal);
+            visibleVarsWriteMod[info.leftVar.name]->value = info.value;
+            visibleVarsWriteMod[info.leftVar.name]->numericVal = value;
+        } catch (const std::exception& e) {
+            // значение не вычислилось — оставляем как есть
+            visibleVarsWriteMod[info.leftVar.name]->value = info.value;
+            visibleVarsWriteMod[info.leftVar.name]->numericVal = std::nullopt;
+        }
+    } else {
+        // std::cerr << "[WARNING] Variable " << info.leftVar.name << " not found for value assignment\n";
+    }
+
+    // 3. Вычисляем и выводим индексные значения переменной слева
+
     std::ostringstream lhsIndexStr;
-    for (size_t i = 0; i < info.leftVar.indices.size(); ++i) {
-        double idxVal = ExpressionCalculator::evaluateWithTinyExpr(info.leftVar.indices[i], values);
+    for (size_t i = 0; i < info.leftVar.indices.size(); i++) {
+        double idxVal = ExpressionCalculator::evaluateWithTinyExpr(info.leftVar.indices[i], visibleVarsVal);
         lhsIndexStr << "[" << (int)idxVal << "]";
     }
 
     std::cout << info.leftVar.name << lhsIndexStr.str() << " = ";
 
-    for (size_t i = 0; i < info.rightVars.size(); ++i) {
+    // 3. Вычисляем и выводим индексные значения всех переменных справа
+    for (size_t i = 0; i < info.rightVars.size(); i++) {
         const auto& rv = info.rightVars[i];
 
         std::ostringstream rvIndexStr;
-        for (size_t j = 0; j < rv.indices.size(); ++j) {
-            double idxVal = ExpressionCalculator::evaluateWithTinyExpr(rv.indices[j], values);
+        for (size_t j = 0; j < rv.indices.size(); j++) {
+            double idxVal = ExpressionCalculator::evaluateWithTinyExpr(rv.indices[j], visibleVarsVal);
             rvIndexStr << "[" << (int)idxVal << "]";
         }
 
