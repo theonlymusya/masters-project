@@ -29,11 +29,11 @@ void CPreprocessor::expand_compound_assignments_and_increments() {
     std::regex re_shr(R"((\S+)\s*>>=\s*)");
 
     // --- Increment/decrement operators ---
-    std::regex postfix_inc(R"((\S+)\s*\+\+)");
-    std::regex prefix_inc(R"(\+\+\s*(\S+))");
+    std::regex postfix_inc(R"((\b\w+)\s*\+\+)");
+    std::regex prefix_inc(R"(\+\+\s*(\b\w+))");
 
-    std::regex postfix_dec(R"((\S+)\s*\-\-)");
-    std::regex prefix_dec(R"(\-\-\s*(\S+))");
+    std::regex postfix_dec(R"((\b\w+)\s*\-\-)");
+    std::regex prefix_dec(R"(\-\-\s*(\b\w+))");
 
     while (std::getline(in, line)) {
         line = std::regex_replace(line, re_plus, "$1 = $1 + ");
