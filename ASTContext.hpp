@@ -31,6 +31,6 @@ class ASTContext {
 
     void executeInstructionList(const std::vector<Instruction>& instrs);
     void executeLoop(const LoopInfo& loop);
-    void executeIfStatement(const IfStatement& ifStmt) const;
+    void executeIfStatement(const IfStatement& ifStmt);
     void executeAssignment(const AssignmentInfo& info);
 };

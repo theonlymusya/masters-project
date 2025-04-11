@@ -127,7 +127,9 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     // 0.0. Считаем, что ЗНАЧЕНИЯ внешних переменных вычислены
     // 0.1. Считаем, что мы находимся в ScopedBlock цикла for, и там лежат имена переменных-итераторов ТОЛЬКО!
     // если в заголовке они были задекларированы (должно быть так при правильной работе)
+    // (в итоге pushScope делаем внутри самой функции)
     // 0.2. Считаем, что мы выходим из ScopedBlock цикла for сразу после выполнения текущей функции
+    // 0.3. Делаем переменные из загаловка visible
 
     // Инициализация стартовых значений
     // 1.0. Выполняем функции getFullScopeForChanges(), получая ссылки на актуальные переменные
@@ -157,131 +159,6 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     // 4.4. Обновляем значения итераторов, перечисленных в поле updated цикла for
     // (по идее обновиться должны итераторы из ScopedBlock цикла for если они были задекларированы в заголовки
     // и итераторы из некоторого внешнего ScopedBlock в ином случае)
-
-    //  1. присваиваем старторвые значения переменным-итераторам
-    //  если таковые не объявлены в заголовке цикла (пустая область инициализации), то ничего не происходит
-    //  пример:
-    //  int i = 0;
-    //  for ( ; i < n; i++)
-
-    // если переменная объявляется ДО цикла - она лежит во внешнем scope и изменения её значений должны
-    // сохраняться если переменная повторно объявляется в заголовке цикла - она лежит и во внешнем и в
-    // локальном scope и изменения её значений внутри цикла не должны влиять на внешнюю переменную
-    // нам нужно сделать scope с итераторами, которые лежат только в локальном scope
-
-    // т. е. важен именно факт ИНИЦИАЛИЗАЦИИ
-    // ПРИМЕР 1
-    // int i = 0;
-    // for ( ; i < n; i++)
-    // и
-    // int i = 0;
-    // for ( i = 6; i < n; i++)
-    // и
-    // int i;
-    // for ( i = 6; i < n; i++)
-    // внешняя переменная примет ОДИНАКОВОЕ ЗНАЧЕНИЕ n-1
-    // стартовое значение будет отличаться!!! 0, 6, 6
-    // что связывает эти примеры?
-    // 1. i НЕ лежит в loop_local_scope
-    // 2. стартовое значение должно быть переписано! (как?)
-    // ПРИМЕР 2
-    // int i = 0;
-    // for (int i = 6; i < n; i++)
-    // внешняя переменная ОСТАНЕТСЯ при своём значении 0
-    // внутренняя переменная принимает значения 6,..,n-1
-    // такие переменные уже лежат в loop local scope
-
-    // std::unordered_map<std::string, iterValType> iterValues;  // мапа локальных итераторов текущего цикла
-
-    // по идее getFullScope() должен взять i j k из loop_local_scope, если есть declaration в заголовке цикла,
-    // из внешнего scope, если не было declaration
-    // auto all_visible_vars = getFullScope();
-    // auto all_visible_vars_val = expr_utils::extractValues(all_visible_vars);
-
-    // for (const auto& [varName, val] : all_visible_vars_val)
-    //     std::cout << varName << " = " << val << std::endl;
-
-    // стартовые значения вычислились только для итераторов
-    // которые объявлены в поле инициализации =>
-    // осторожно со случаем for ( ; i < n; i++)
-    // перед вычислением сondition, нужно посчитать значение i (как?...)
-    // такое ощущение что значения переменных из всех scope надо заранее посчитать, хммм
-    // в принципе да, наверное это решит проблему
-    // хорошо, то есть предполагаем, что мы уже прошлись по дереву и посчитали значения переменных, которые
-    // можно было вычислить? блин а как это по твоему делать?
-    // а ну не, это не предварительная операция должна
-    // быть, а просто по мере обхода ты же обрабатываешь assignment, так что вот как раз
-    // for (const auto& [varName, iterInfo] : loop.varNames) {
-    //     double start = ExpressionCalculator::evaluateWithTinyExpr(iterInfo.startValue,
-    //     all_visible_vars_val); iterValues[varName] = start;
-    // }
-
-    // 2. готовим отдельную область с локальными переменными-итераторами и их значениями
-    // т. о. изменения значений не будут касаться внешних переменных
-
-    // по идее если есть переинициализация одной переменной во внешней области
-    // и в локальной, по функции getFullScope будет получать именно локальное значение этой переменной,
-    // потому что мы его значение тоже кладём в scope
-    // пример
-    // int i = 0;
-    // for (int i = 6; i < n; i++)
-    // а при popScope по завершение цикла i снова станет равна 0
-
-    // std::unordered_map<std::string, VarInfo> iterScope;  // область видимости итераторов
-
-    // for (const auto& [varName, val] : iterValues) {
-    //     auto it = cur_scope.find(varName);
-    //     if (it != cur_scope.end()) {
-    //         scope[varName] = it->second;
-    //         scope[varName].value = std::to_string((int)val);
-    //     } else {
-    //         scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
-    //     }
-    // }
-    // pushScope(scope);
-
-    // // 2. Начинаем итерации
-    // while (true) {
-    //     std::cout << "\n--- Новая итерация цикла ---\n";
-
-    //     // 2.1 Получаем объединённую область видимости
-    //     auto scope = getFullCurScope();
-
-    //     // 2.2 Добавляем текущие значения итераторов, если они ещё не задекларированы
-    //     for (const auto& [varName, val] : iterValues) {
-    //         std::cout << "  Итератор " << varName << " = " << val << "\n";
-    //         auto it = scope.find(varName);
-    //         if (it != scope.end()) {
-    //             it->second.value = std::to_string((int)val);
-    //         } else {
-    //             scope[varName] = VarInfo{"int", std::to_string((int)val), false, 0};
-    //         }
-    //     }
-
-    //     std::cout << "  Условие: " << loop.condition << "\n";
-
-    //     // 2.3 Проверяем условие
-    //     double cond =
-    //         ExpressionCalculator::evaluateWithTinyExpr(loop.condition, expr_utils::extractValues(scope));
-    //     std::cout << "  Значение условия: " << cond << "\n";
-    //     if (!cond)
-    //         break;
-
-    //     // 2.4 Добавляем scope и исполняем тело
-    //     pushScope(scope);
-    //     pushScope(loop.body.localScope);
-    //     executeInstructionList(loop.body.instructions);
-    //     popScope();  // тело
-    //     popScope();  // итераторы
-
-    //     // 2.5 Обновляем итераторы
-    //     for (const auto& [varName, iterInfo] : loop.varNames) {
-    //         double updated = ExpressionCalculator::evaluateWithTinyExpr(
-    //             iterInfo.updateValue, expr_utils::extractValues(getFullCurScope()));
-    //         std::cout << "  Обновление " << varName << " = " << updated << "\n";
-    //         iterValues[varName] = updated;
-    //     }
-    // }
 
     pushScope(loop.body.localScope);
 
@@ -315,8 +192,9 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 
         visibleVarsReadMod = getAllVisibleVars();
         visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
+        // InstructionsPrinter::printScope(visibleVarsReadMod);
 
-        // std::cout << "  Условие: " << loop.condition << "\n";
+        // std::cout << "  Условие: " << loop.condition << std::endl;
         double cond = ExpressionCalculator::evaluateWithTinyExpr(loop.condition, visibleVarsVal);
         // std::cout << "  Значение условия: " << cond << "\n";
 
@@ -338,7 +216,7 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 
         for (const auto& [itName, updateVal] : loop.itName_updateVal) {
             double updated = ExpressionCalculator::evaluateWithTinyExpr(updateVal, visibleVarsVal);
-            std::cout << "  Обновление " << itName << " = " << updated << "\n";
+            // std::cout << "  Обновление " << itName << " = " << updated << "\n";
 
             if (visibleVarsWriteMod.count(itName)) {
                 auto* var = visibleVarsWriteMod[itName];
@@ -362,6 +240,7 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 //     std::vector<IndexedVariable> rightVars;
 //     std::string value;
 // };
+
 void ASTContext::executeAssignment(const AssignmentInfo& info) {
     // План
     // 1. Если текущая assignment была declared - найти левую переменную в текущей
@@ -425,47 +304,52 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
     std::cout << std::endl;
 }
 
-void ASTContext::executeIfStatement(const IfStatement& ifStmt) const {
-    //     // Для демонстрации считаем, что условие – число, отличное от 0 означает true.
-    //     int condValue = std::stoi(expandVariables(ifStmt.condition, loopVars));
-    //     if (condValue) {
-    //         executeInstructionList(ifStmt.thenBlock.instructions, loopVars);
-    //     } else {
-    //         bool executedElseIf = false;
-    //         for (const auto& branch : ifStmt.elseIfBranches) {
-    //             int elifVal = std::stoi(expandVariables(branch.condition, loopVars));
-    //             if (elifVal) {
-    //                 executeInstructionList(branch.block.instructions, loopVars);
-    //                 executedElseIf = true;
-    //                 break;
-    //             }
-    //         }
-    //         if (!executedElseIf && !ifStmt.elseBlock.instructions.empty()) {
-    //             executeInstructionList(ifStmt.elseBlock.instructions, loopVars);
-    //         }
-    //     }
+// struct ElseIfStatement {
+//     std::string condition;
+//     ScopedBlock block;
+// };
 
-    // if (evaluateCondition(expr, expr_utils::extractValues(getCombinedScope()))) {
-    //     pushScope(ifStmt.thenBlock.localScope);
-    //     executeInstructionList(ifStmt.thenBlock.instructions);
-    //     popScope();
-    //     break;
-    // }
+// struct IfStatement {
+//     std::string condition;
+//     ScopedBlock thenBlock;
+//     std::vector<ElseIfStatement> elseIfBranches;
+//     ScopedBlock elseBlock;
+// };
 
-    // bool matched = false;
-    // for (const auto& elif : ifStmt.elseIfBranches) {
-    //     if (evaluateCondition(expr, expr_utils::extractValues(getCombinedScope())) {
-    //         pushScope(elif.block.localScope);
-    //         executeInstructionList(elif.block.instructions);
-    //         popScope();
-    //         matched = true;
-    //         break;
-    //     }
-    // }
+void ASTContext::executeIfStatement(const IfStatement& ifStmt) {
+    auto visibleVarsReadMod = getAllVisibleVars();
+    auto visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
 
-    // if (!matched && !ifStmt.elseBlock.instructions.empty()) {
-    //     pushScope(ifStmt.elseBlock.localScope);
-    //     executeInstructionList(ifStmt.elseBlock.instructions);
-    //     popScope();
-    // }
+    // std::cout << " If cond: " << ifStmt.condition;
+    double ifCond = ExpressionCalculator::evaluateWithTinyExpr(ifStmt.condition, visibleVarsVal);
+    // std::cout << " == " << ifCond << std::endl;
+    if (ifCond) {
+        pushScope(ifStmt.thenBlock.localScope);
+        executeInstructionList(ifStmt.thenBlock.instructions);
+        popScope();
+        return;
+    }
+
+    bool matched = false;
+    visibleVarsReadMod = getAllVisibleVars();
+    visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
+
+    for (const auto& elif : ifStmt.elseIfBranches) {
+        // std::cout << " If cond: " << elif.condition;
+        double elifCond = ExpressionCalculator::evaluateWithTinyExpr(elif.condition, visibleVarsVal);
+        // std::cout << " == " << elifCond << std::endl;
+        if (elifCond) {
+            pushScope(elif.block.localScope);
+            executeInstructionList(elif.block.instructions);
+            popScope();
+            matched = true;
+            return;
+        }
+    }
+
+    if (!matched && !ifStmt.elseBlock.instructions.empty()) {
+        pushScope(ifStmt.elseBlock.localScope);
+        executeInstructionList(ifStmt.elseBlock.instructions);
+        popScope();
+    }
 }
