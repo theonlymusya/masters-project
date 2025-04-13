@@ -6,13 +6,21 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include "CalcExpr.hpp"
 #include "ContextStructs.hpp"
+#include "Tables.hpp"
+
+struct IterFrame {
+    std::string name;        // имя итератора, например "i"
+    int value;               // текущее числовое значение
+    bool anonymous = false;  // true, если это "анонимный" итератор в for(;;)
+};
 
 class ASTContext {
    public:
     using iterValType = int;
     ASTContext();
+
+    void setObserver(Observer* obs);
 
     void addProgram(const ScopedBlock& block);
     void executeInstructions();
@@ -25,6 +33,16 @@ class ASTContext {
     std::unordered_map<std::string, VarInfo*> getLocalVarsForChanges();
 
    private:
+    Observer* observer = nullptr;
+
+    std::vector<IterFrame> iterStack;  // стек активных итераторов
+    void pushIterator(const std::string& name, int value, bool anonymous = false);
+    void popLastIterators(size_t count);
+    bool hasIterator(const std::string& name) const;
+    void updateIterator(const std::string& name, int newValue);
+    void registerIteratorsFromUpdateVal(const LoopInfo& loop,
+                                        const std::unordered_map<std::string, VarInfo>& visibleVars);
+
     std::vector<Instruction> instructions;
 
     std::vector<std::unordered_map<std::string, VarInfo>> scopeStack;

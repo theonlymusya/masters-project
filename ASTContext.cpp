@@ -6,12 +6,64 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include "CalcExpr.hpp"
 #include "InstrPrinter.hpp"
 
-ASTContext::ASTContext() {
-    // Инициализируем глобальную область видимости
-    // pushScope();
+void ASTContext::pushIterator(const std::string& name, int value, bool anonymous) {
+    iterStack.push_back({name, value, anonymous});
 }
+
+bool ASTContext::hasIterator(const std::string& name) const {
+    return std::any_of(iterStack.begin(), iterStack.end(),
+                       [&](const IterFrame& f) { return !f.anonymous && f.name == name; });
+}
+
+void ASTContext::updateIterator(const std::string& name, int newValue) {
+    for (auto& f : iterStack) {
+        if (!f.anonymous && f.name == name) {
+            f.value = newValue;
+            return;
+        }
+    }
+}
+
+void ASTContext::popLastIterators(size_t count) {
+    for (size_t i = 0; i < count && !iterStack.empty(); ++i)
+        iterStack.pop_back();
+}
+
+void ASTContext::registerIteratorsFromUpdateVal(const LoopInfo& loop,
+                                                const std::unordered_map<std::string, VarInfo>& visibleVars) {
+    for (const auto& [itName, updateVal] : loop.itName_updateVal) {
+        if (!hasIterator(itName)) {
+            auto it = visibleVars.find(itName);
+
+            if (it == visibleVars.end()) {
+                throw std::runtime_error("[FATAL] Iterator variable '" + itName +
+                                         "' used in updateVal but not declared.");
+            }
+
+            if (!it->second.visible) {
+                throw std::runtime_error("[FATAL] Iterator variable '" + itName +
+                                         "' is not visible at loop entry.");
+            }
+
+            if (!it->second.numericVal.has_value()) {
+                throw std::runtime_error("[FATAL] Iterator variable '" + itName +
+                                         "' has no numeric value for initialization.");
+            }
+
+            int initial = static_cast<int>(it->second.numericVal.value());
+            pushIterator(itName, initial, false);
+        }
+    }
+}
+
+void ASTContext::setObserver(Observer* obs) {
+    observer = obs;
+}
+
+ASTContext::ASTContext() {}
 
 void ASTContext::addProgram(const ScopedBlock& block) {
     instructions.push_back({InstructionType::PROGRAM, block});
@@ -121,46 +173,9 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) 
 // };
 
 void ASTContext::executeLoop(const LoopInfo& loop) {
-    // ПЛАН
-
-    // Предположения на которых работает функция
-    // 0.0. Считаем, что ЗНАЧЕНИЯ внешних переменных вычислены
-    // 0.1. Считаем, что мы находимся в ScopedBlock цикла for, и там лежат имена переменных-итераторов ТОЛЬКО!
-    // если в заголовке они были задекларированы (должно быть так при правильной работе)
-    // (в итоге pushScope делаем внутри самой функции)
-    // 0.2. Считаем, что мы выходим из ScopedBlock цикла for сразу после выполнения текущей функции
-    // 0.3. Делаем переменные из загаловка visible
-
-    // Инициализация стартовых значений
-    // 1.0. Выполняем функции getFullScopeForChanges(), получая ссылки на актуальные переменные
-    // 1.1. Выполняем функцию getFullScope(), получая константные ссылки на переменные, чтобы превратить их в
-    // карту {имя : значение}, чтобы засунуть в функцию для вычислений
-    // 1.2. Присваиваем новые стартовые значения из заголовка цикла, если такие есть
-    // (int i = 6 или i = 6 в поле инициализации)
-    // 1.2. (по идее в случае int i = 6 должна измениться переменная из ScopedBlock цикла for)
-    // 1.2. (а в случае i = 6 должна измениться переменная из одного из внешних ScopedBlock)
-
-    // Проверка условия
-    // 2.0. Повторно делаем getFullScope для получения актуальных значений переменных
-    // 2.1. На их основе выполняем вычисление Condition, и если он равен 0 -> прерываем цикл
-
-    // Выполнение тела цикла
-    // 3.0. По идее дальше вызывается executeInstrList без предварительных действий (убедиться в этом?)
-    // 3.1. Также мы предполагаем, что все изменения значений переменных, полученные в результате работы тела
-    // цикла
-    // 3.1. Должны были сохраниться в ScopedBlock цикла for и актуальные значения могут быть получены с
-    // помощью getFullScope()
-
-    // Обновление значений итераторов
-    // 4.0. Выполняем функцию getFullScope(), получая константные ссылки на переменные
-    // 4.1. В цикле идём по всем выражениям update из заголовка цикла
-    // 4.2. Используем их для вычисления новых значений update
-    // 4.3. Выполняем функции getFullScopeForChanges(), получая ссылки на актуальные переменные
-    // 4.4. Обновляем значения итераторов, перечисленных в поле updated цикла for
-    // (по идее обновиться должны итераторы из ScopedBlock цикла for если они были задекларированы в заголовки
-    // и итераторы из некоторого внешнего ScopedBlock в ином случае)
-
     pushScope(loop.body.localScope);
+
+    size_t iterStackSizeBefore = iterStack.size();
 
     auto localVarsWriteMod = getLocalVarsForChanges();
 
@@ -175,18 +190,29 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     auto visibleVarsReadMod = getAllVisibleVars();
     auto visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
 
-    // 2. Вычисляем стартовые значения итераторов
     for (const auto& [itName, startVal] : loop.itName_startVal) {
         double start = ExpressionCalculator::evaluateWithTinyExpr(startVal, visibleVarsVal);
-        //.count = 1, если в map есть ключ varName
+
+        // обновляем VarInfo
         if (visibleVarsWriteMod.count(itName)) {
             auto* var = visibleVarsWriteMod[itName];
-            var->value = std::to_string((int)start);
-            var->numericVal = start;
+            var->value = std::to_string(static_cast<int>(start));
+            var->numericVal = static_cast<int>(start);
         } else {
             std::cerr << "[WARNING] Variable " << itName << " was not found for initialization\n";
         }
+        pushIterator(itName, static_cast<int>(start), false);
     }
+
+    // Дополняем итераторами из updateVal (например, for (; i < n; i++))
+    // если такие переменные ещё не в iterStack
+    registerIteratorsFromUpdateVal(loop, visibleVarsReadMod);
+
+    // Если вообще нет итераторов → считаем цикл бесконечным for(;;)
+    if (iterStack.size() == iterStackSizeBefore) {
+        pushIterator("?", -1, true);
+    }
+
     for (;;) {
         // std::cout << "\n--- Новая итерация цикла ---\n";
 
@@ -216,18 +242,21 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 
         for (const auto& [itName, updateVal] : loop.itName_updateVal) {
             double updated = ExpressionCalculator::evaluateWithTinyExpr(updateVal, visibleVarsVal);
-            // std::cout << "  Обновление " << itName << " = " << updated << "\n";
 
             if (visibleVarsWriteMod.count(itName)) {
                 auto* var = visibleVarsWriteMod[itName];
-                var->value = std::to_string((int)updated);
+                var->value = std::to_string(static_cast<int>(updated));
                 var->numericVal = updated;
             } else {
                 std::cerr << "[WARNING] Variable " << itName << " was not found for updating\n";
             }
+
+            // Обновляем итератор в стеке
+            updateIterator(itName, static_cast<int>(updated));
         }
     }
     popScope();
+    popLastIterators(iterStack.size() - iterStackSizeBefore);
 }
 
 // struct IndexedVariable {
@@ -242,6 +271,19 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 // };
 
 void ASTContext::executeAssignment(const AssignmentInfo& info) {
+    std::cout << "[DEBUG] Итераторы при выполнении assignment ID = " << info.id << ": ";
+    for (const auto& frame : iterStack) {
+        std::cout << (frame.anonymous ? "anon" : frame.name) << "=" << frame.value << " ";
+    }
+    std::cout << "\n";
+
+    if (observer && !observer->hasTableForAssignment(info.id)) {
+        auto table = std::make_shared<Table>(info.leftVar.name, info.id);
+        table->dim = info.loopDepth;
+        observer->registerTableForVar(info.leftVar.name, table);
+        std::cout << "[DEBUG] Создана таблица: ID = " << info.id << ", переменная = " << info.leftVar.name
+                  << ", глубина вложенности = " << info.loopDepth << "\n";
+    }
     // План
     // 1. Если текущая assignment была declared - найти левую переменную в текущей
     // области видимости через getLocalVisibleVarsForChanges() и сделать её visible
