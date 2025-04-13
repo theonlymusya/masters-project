@@ -57,7 +57,10 @@ struct IndexedVariable {
 };
 
 struct AssignmentInfo {
+    static inline int global_counter = 0;  // статическая переменная-счётчик
+    int id = global_counter++;             // id присваивается при создании объекта
     bool declared = false;
+    int loopDepth = 0;
     IndexedVariable leftVar;
     std::vector<IndexedVariable> rightVars;
     std::string value;

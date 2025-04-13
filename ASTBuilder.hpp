@@ -61,15 +61,10 @@ class ASTBuilder : public small_c_grammarBaseListener {
     std::stack<std::unordered_map<std::string, VarInfo>> scopeStack;
     // для временного хранения if-операторов
     std::stack<IfNode> ifStack;
-    // cтек для тел циклов for (если требуется выделять отдельно)
-    // std::stack<std::vector<Instruction>> loopBodyStack;
-    // буфер для хранения текста текущего выражения
-    std::string currentExpr;
 
-    // std::unordered_map<std::string, VarInfo> getCurrentScope() const;
+    std::stack<int> loopDepthStack;
 
     // вспомогательные функции обхода дерева и сбора информации
-
     void beginBlock();
     ScopedBlock endBlock();
 

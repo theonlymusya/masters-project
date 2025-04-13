@@ -188,6 +188,8 @@ AssignmentInfo ASTBuilder::buildAssignmentInfo(small_c_grammarParser::Assignment
         info.value = ctx->mathExpr()->getText();
     }
 
+    info.loopDepth = loopDepthStack.empty() ? 0 : loopDepthStack.top();
+
     return info;
 }
 
@@ -283,6 +285,8 @@ void ASTBuilder::exitIfStatement(small_c_grammarParser::IfStatementContext* ctx)
 void ASTBuilder::enterForStatement(small_c_grammarParser::ForStatementContext* ctx) {
     if (disableInstructionCapture)
         return;
+    int depth = loopDepthStack.empty() ? 1 : loopDepthStack.top() + 1;
+    loopDepthStack.push(depth);
     beginBlock();
 }
 
@@ -359,6 +363,8 @@ void ASTBuilder::exitForStatement(small_c_grammarParser::ForStatementContext* ct
     loopInstr.type = InstructionType::FOR_LOOP;
     loopInstr.data = loopInfo;
     addInstruction(loopInstr);
+
+    loopDepthStack.pop();
 }
 
 void ASTBuilder::enterMathExpr(small_c_grammarParser::MathExprContext* ctx) {
