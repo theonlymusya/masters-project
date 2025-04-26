@@ -17,7 +17,10 @@ SRC = main.cpp \
       InstrPrinter.cpp \
       ASTContext.cpp \
       CalcExpr.cpp \
-      external/tinyExpr/tinyexpr.cpp
+      external/tinyExpr/tinyexpr.cpp \
+      Tables.cpp \
+      AlgoGenerator.cpp \
+      AlgoInfoPrinter.cpp
 
 RUNTIME_SRC := $(shell find external/antlr4-runtime/src -name '*.cpp')
 

@@ -4,8 +4,10 @@
 #include <string>
 #include "ASTBuilder.hpp"
 #include "ASTContext.hpp"
+#include "AlgoGenerator.hpp"
 #include "CPreprocess.hpp"
 #include "InstrPrinter.hpp"
+#include "Tables.hpp"
 #include "antlr4-runtime.h"
 #include "small_c_grammarLexer.h"
 #include "small_c_grammarParser.h"
@@ -48,12 +50,21 @@ int main(int argc, const char* argv[]) {
     ASTBuilder builder;
     tree::ParseTreeWalker::DEFAULT.walk(&builder, tree);
     ASTContext context = builder.getASTContext();
+    Observer observer;
+    context.setObserver(&observer);
 
-    std::cout << "\n=== Развернутое выполнение кода ===\n";
-    InstructionsPrinter printer;
-    printer.printAST(context.get_instr());
+    // std::cout << "\n=== Развернутое выполнение кода ===\n";
+    // InstructionsPrinter printer;
+    // printer.printAST(context.get_instr());
 
     context.executeInstructions();
+    for (const auto& [id, table] : observer.getAllTables()) {
+        std::cout << "\n=== Таблица для переменной " << table->targetVar << " (id=" << id << ") ===\n";
+        InstructionsPrinter::printTable(*table);
+    }
+    AlgoGenerator generator(observer);
+    AlgoInfo algo = generator.generate();
+    algo.print(algo);
 
     return 0;
 }
