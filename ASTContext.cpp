@@ -175,6 +175,15 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) 
 void ASTContext::executeLoop(const LoopInfo& loop) {
     pushScope(loop.body.localScope);
 
+    currentLoopId++;
+    auto loopNode = std::make_shared<MetaNode>(MetaNode::NodeType::ForLoop, currentLoopId);
+    if (!metaNodeStack.empty()) {
+        metaNodeStack.top()->children.push_back(loopNode);
+    } else {
+        observer->getProgramTreeRoots().push_back(loopNode);
+    }
+    metaNodeStack.push(loopNode);
+
     size_t iterStackSizeBefore = iterStack.size();
 
     auto localVarsWriteMod = getLocalVarsForChanges();
@@ -257,6 +266,7 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     }
     popScope();
     popLastIterators(iterStack.size() - iterStackSizeBefore);
+    metaNodeStack.pop();
 }
 
 // struct IndexedVariable {
@@ -271,18 +281,20 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 // };
 
 void ASTContext::executeAssignment(const AssignmentInfo& info) {
-    std::cout << "[DEBUG] Итераторы при выполнении assignment ID = " << info.id << ": ";
-    for (const auto& frame : iterStack) {
-        std::cout << (frame.anonymous ? "anon" : frame.name) << "=" << frame.value << " ";
-    }
-    std::cout << "\n";
-
-    if (observer && !observer->hasTableForAssignment(info.id)) {
-        auto table = std::make_shared<Table>(info.leftVar.name, info.id);
-        table->dim = info.loopDepth;
-        observer->registerTableForVar(info.leftVar.name, table);
-        std::cout << "[DEBUG] Создана таблица: ID = " << info.id << ", переменная = " << info.leftVar.name
-                  << ", глубина вложенности = " << info.loopDepth << "\n";
+    std::shared_ptr<Table> tablePtr;
+    if (observer) {
+        if (!observer->hasTableForAssignment(info.id)) {
+            tablePtr = std::make_shared<Table>(info.leftVar.name, info.id, info.loopDepth);
+            observer->registerTableForVar(info.leftVar.name, tablePtr);
+            std::cout << "[DEBUG] Создана таблица: ID = " << info.id << ", переменная = " << info.leftVar.name
+                      << ", глубина вложенности = " << info.loopDepth << "\n";
+        } else {
+            tablePtr = observer->getTableByAssignmentId(info.id);
+            if (!tablePtr) {
+                std::cerr << "[ERROR] table wasn't created and wasn't found for " << info.leftVar.name;
+                exit(1);
+            }
+        }
     }
     // План
     // 1. Если текущая assignment была declared - найти левую переменную в текущей
@@ -320,30 +332,65 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
     }
 
     // 3. Вычисляем и выводим индексные значения переменной слева
-
+    std::vector<int> lhsIndices;
     std::ostringstream lhsIndexStr;
     for (size_t i = 0; i < info.leftVar.indices.size(); i++) {
         double idxVal = ExpressionCalculator::evaluateWithTinyExpr(info.leftVar.indices[i], visibleVarsVal);
+        lhsIndices.push_back((int)idxVal);
         lhsIndexStr << "[" << (int)idxVal << "]";
     }
-
     std::cout << info.leftVar.name << lhsIndexStr.str() << " = ";
 
     // 3. Вычисляем и выводим индексные значения всех переменных справа
+    std::vector<std::vector<int>> rhsIndexValues;
     for (size_t i = 0; i < info.rightVars.size(); i++) {
         const auto& rv = info.rightVars[i];
 
+        std::vector<int> rhsIndices;
         std::ostringstream rvIndexStr;
         for (size_t j = 0; j < rv.indices.size(); j++) {
             double idxVal = ExpressionCalculator::evaluateWithTinyExpr(rv.indices[j], visibleVarsVal);
+            rhsIndices.push_back((int)idxVal);
             rvIndexStr << "[" << (int)idxVal << "]";
         }
+        rhsIndexValues.push_back(std::move(rhsIndices));
 
         std::cout << rv.name << rvIndexStr.str();
         if (i + 1 < info.rightVars.size())
             std::cout << ", ";
     }
     std::cout << std::endl;
+
+    if (observer) {
+        TableRow row;
+        row.scheduleIdx = observer->nextScheduleIndexForVar(info.leftVar.name);
+        for (const auto& frame : iterStack)
+            row.iters.push_back(frame.value);
+        if ((int)row.iters.size() != tablePtr->dim) {
+            std::cerr << "[WARNING] Несовпадение размеров итераторов и dim таблицы!\n";
+        }
+        row.LHSVarIdx = std::move(lhsIndices);
+
+        // 3. Индексы и источники переменных справа
+        for (size_t i = 0; i < info.rightVars.size(); ++i) {
+            const auto& rhsVar = info.rightVars[i];
+            const auto& rhsIndices = rhsIndexValues[i];
+
+            auto src = observer->findLatestSrc(rhsVar.name, rhsIndices);
+            if (src.has_value()) {
+                row.RHSVarIdx.push_back(rhsIndices);
+                row.sources.push_back(*src);
+            } else {
+                std::cerr << "[DEBUG] Не найден источник для " << rhsVar.name << " с индексами: [";
+                for (int v : rhsIndices)
+                    std::cerr << v << " ";
+                std::cerr << "]\n";
+            }
+        }
+
+        // 4. Строка добавляется В ЛЮБОМ СЛУЧАЕ
+        tablePtr->rows.push_back(std::move(row));
+    }
 }
 
 // struct ElseIfStatement {

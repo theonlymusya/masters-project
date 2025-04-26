@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <optional>
+#include <stack>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -46,6 +47,8 @@ class ASTContext {
     std::vector<Instruction> instructions;
 
     std::vector<std::unordered_map<std::string, VarInfo>> scopeStack;
+    std::stack<std::shared_ptr<MetaNode>> metaNodeStack;
+    int currentLoopId = 0;  // я бы его перенесла отсюда
 
     void executeInstructionList(const std::vector<Instruction>& instrs);
     void executeLoop(const LoopInfo& loop);
