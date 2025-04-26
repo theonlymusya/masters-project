@@ -173,15 +173,39 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) 
 // };
 
 void ASTContext::executeLoop(const LoopInfo& loop) {
+    std::cout << "[DEBUG] Вызов executeLoop\n";
+
     pushScope(loop.body.localScope);
 
     currentLoopId++;
+    std::cout << std::endl << currentLoopId << std::endl;
+
+    int myLoopId = currentLoopId;
+    int parentId = metaNodeStack.empty() ? 0 : metaNodeStack.top()->id;  // если в стеке кто-то есть
+
+    LoopMetaInfo metaInfo;
+    metaInfo.loopId = myLoopId;
+    metaInfo.parentLoopId = parentId;
+
+    // // собираем имена активных итераторов
+    // for (const auto& frame : iterStack) {
+    //     if (!frame.anonymous) {
+    //         metaInfo.iteratorNames.push_back(frame.name);
+    //     }
+    // }
+
+    observer->addLoopMeta(metaInfo);
+
     auto loopNode = std::make_shared<MetaNode>(MetaNode::NodeType::ForLoop, currentLoopId);
     if (!metaNodeStack.empty()) {
         metaNodeStack.top()->children.push_back(loopNode);
     } else {
-        observer->getProgramTreeRoots().push_back(loopNode);
+        observer->getProgramTreeRootsNonConst().push_back(loopNode);
     }
+    if (parentId != 0) {
+        observer->getLoopMetaNonConst(parentId).nestedLoops.push_back(myLoopId);
+    }
+
     metaNodeStack.push(loopNode);
 
     size_t iterStackSizeBefore = iterStack.size();
@@ -295,13 +319,26 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
                 exit(1);
             }
         }
+
+        // Создаём узел MetaNode для присваивания ВСЕГДА
+        auto assignNode = std::make_shared<MetaNode>(MetaNode::NodeType::Assignment, info.id);
+
+        if (!metaNodeStack.empty()) {
+            metaNodeStack.top()->children.push_back(assignNode);
+        } else {
+            observer->getProgramTreeRootsNonConst().push_back(assignNode);
+        }
+
+        if (!metaNodeStack.empty()) {
+            int currentLoop = metaNodeStack.top()->id;
+            observer->getLoopMetaNonConst(currentLoop).tablesInside.push_back(info.id);
+        }
     }
     // План
     // 1. Если текущая assignment была declared - найти левую переменную в текущей
     // области видимости через getLocalVisibleVarsForChanges() и сделать её visible
 
     auto localVarsWriteMod = getLocalVarsForChanges();
-
     if (info.declared) {
         if (localVarsWriteMod.count(info.leftVar.name)) {
             localVarsWriteMod[info.leftVar.name]->visible = true;

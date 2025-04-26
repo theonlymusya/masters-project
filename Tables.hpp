@@ -54,14 +54,31 @@ struct MetaNode {
     MetaNode(NodeType t, int identifier) : type(t), id(identifier) {}
 };
 
+struct LoopMetaInfo {
+    int loopId;        // уникальный id цикла for
+    int parentLoopId;  // id родителя (0 если нет)
+    // std::vector<std::string> iteratorNames;  // имена итераторов (i, j, k)
+    std::vector<int> tablesInside;  // id таблиц присваиваний внутри этого for
+    std::vector<int> nestedLoops;   // id вложенных for внутри этого for
+};
+
 class Observer {
    public:
+    // желательно сделать приватной
     std::unordered_map<std::string, Schedule> LHVars_Schedule;
 
     bool hasTableForAssignment(int id) const;
     std::shared_ptr<Table> getTableByAssignmentId(int assignmentId) const;
 
-    std::vector<std::shared_ptr<MetaNode>>& getProgramTreeRoots();
+    const std::vector<std::shared_ptr<MetaNode>>& getProgramTreeRoots() const;
+    std::vector<std::shared_ptr<MetaNode>>& getProgramTreeRootsNonConst();
+
+    void addLoopMeta(const LoopMetaInfo& metaInfo);
+
+    const LoopMetaInfo& getLoopMeta(int loopId) const;
+    LoopMetaInfo& getLoopMetaNonConst(int loopId);
+    void debugPrintMetaTree() const;
+    void debugPrintMetaNode(const std::shared_ptr<MetaNode>& node, int depth) const;
 
     const std::map<int, std::shared_ptr<Table>>& getAllTables() const;
 
@@ -74,7 +91,8 @@ class Observer {
    private:
     // каждая таблица соответствует оператору присваивания
     std::map<int, std::shared_ptr<Table>> AssignmentId_Table;
-    // varName → lastScheduleIdx
-    std::unordered_map<std::string, int> scheduleCounters;
+    std::map<int, LoopMetaInfo> loopsInfo;                  // loopId → LoopMetaInfo
+    std::unordered_map<std::string, int> scheduleCounters;  // varName → lastScheduleIdx
+
     std::vector<std::shared_ptr<MetaNode>> programTreeRoots;
 };
