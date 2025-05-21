@@ -177,37 +177,6 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 
     pushScope(loop.body.localScope);
 
-    currentLoopId++;
-    std::cout << std::endl << currentLoopId << std::endl;
-
-    int myLoopId = currentLoopId;
-    int parentId = metaNodeStack.empty() ? 0 : metaNodeStack.top()->id;  // если в стеке кто-то есть
-
-    LoopMetaInfo metaInfo;
-    metaInfo.loopId = myLoopId;
-    metaInfo.parentLoopId = parentId;
-
-    // // собираем имена активных итераторов
-    // for (const auto& frame : iterStack) {
-    //     if (!frame.anonymous) {
-    //         metaInfo.iteratorNames.push_back(frame.name);
-    //     }
-    // }
-
-    observer->addLoopMeta(metaInfo);
-
-    auto loopNode = std::make_shared<MetaNode>(MetaNode::NodeType::ForLoop, currentLoopId);
-    if (!metaNodeStack.empty()) {
-        metaNodeStack.top()->children.push_back(loopNode);
-    } else {
-        observer->getProgramTreeRootsNonConst().push_back(loopNode);
-    }
-    if (parentId != 0) {
-        observer->getLoopMetaNonConst(parentId).nestedLoops.push_back(myLoopId);
-    }
-
-    metaNodeStack.push(loopNode);
-
     size_t iterStackSizeBefore = iterStack.size();
 
     auto localVarsWriteMod = getLocalVarsForChanges();
@@ -290,7 +259,6 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     }
     popScope();
     popLastIterators(iterStack.size() - iterStackSizeBefore);
-    metaNodeStack.pop();
 }
 
 // struct IndexedVariable {
@@ -318,20 +286,6 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
                 std::cerr << "[ERROR] table wasn't created and wasn't found for " << info.leftVar.name;
                 exit(1);
             }
-        }
-
-        // Создаём узел MetaNode для присваивания ВСЕГДА
-        auto assignNode = std::make_shared<MetaNode>(MetaNode::NodeType::Assignment, info.id);
-
-        if (!metaNodeStack.empty()) {
-            metaNodeStack.top()->children.push_back(assignNode);
-        } else {
-            observer->getProgramTreeRootsNonConst().push_back(assignNode);
-        }
-
-        if (!metaNodeStack.empty()) {
-            int currentLoop = metaNodeStack.top()->id;
-            observer->getLoopMetaNonConst(currentLoop).tablesInside.push_back(info.id);
         }
     }
     // План
@@ -426,7 +380,7 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
         }
 
         // 4. Строка добавляется В ЛЮБОМ СЛУЧАЕ
-        tablePtr->rows.push_back(std::move(row));
+        tablePtr->addRow(std::move(row));
     }
 }
 

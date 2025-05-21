@@ -32,6 +32,7 @@ class ASTContext {
     std::unordered_map<std::string, VarInfo> getAllVisibleVars() const;
     std::unordered_map<std::string, VarInfo*> getAllVisibleVarsForChanges();
     std::unordered_map<std::string, VarInfo*> getLocalVarsForChanges();
+    const std::vector<Instruction>& getInstructions() const { return instructions; }
 
    private:
     Observer* observer = nullptr;
@@ -47,8 +48,6 @@ class ASTContext {
     std::vector<Instruction> instructions;
 
     std::vector<std::unordered_map<std::string, VarInfo>> scopeStack;
-    std::stack<std::shared_ptr<MetaNode>> metaNodeStack;
-    int currentLoopId = 0;  // я бы его перенесла отсюда
 
     void executeInstructionList(const std::vector<Instruction>& instrs);
     void executeLoop(const LoopInfo& loop);
