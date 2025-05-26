@@ -13,6 +13,8 @@
 #include "small_c_grammarParser.h"
 
 using namespace antlr4;
+#include <iostream>
+#include <variant>
 
 int main(int argc, const char* argv[]) {
     if (argc < 2) {
@@ -58,11 +60,13 @@ int main(int argc, const char* argv[]) {
     // printer.printAST(context.get_instr());
 
     context.executeInstructions();
+    InstructionsPrinter::printInstructionsScheme(context.getInstructions());
     for (const auto& [id, table] : observer.getAllTables()) {
         std::cout << "\n=== Таблица для переменной " << table->targetVar << " (id=" << id << ") ===\n";
         InstructionsPrinter::printTable(*table);
     }
-    AlgoGenerator generator(observer);
+
+    AlgoGenerator generator(observer, context);
     AlgoInfo algo = generator.generate();
     algo.print(algo);
 

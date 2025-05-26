@@ -1,5 +1,6 @@
 #include "AlgoGenerator.hpp"
 #include <sstream>
+#include "InstrPrinter.hpp"
 
 AlgoGenerator::AlgoGenerator(const Observer& obs, const ASTContext& ast) : observer(obs), astContext(ast) {}
 
@@ -35,16 +36,15 @@ void AlgoGenerator::markNeededTables() {
 
 // 1. bsrc - найти при предварительном обходе
 // 2. i j k лучше брать изминмаксных в таблице, я думаю, чтобы лишних итераций не было
+// warning если оператор присваивания вне цикла лежит ему нужен arg 0..0
 AlgoInfo AlgoGenerator::generate() {
     AlgoInfo algo;
-    // Block rootBlock("0", "0");
     // markNeededTables();
 
     IteratorNamer namer;
-    // buildAlgoFromInstructions(astContext.getInstructions(), rootBlock, namer);
-    for (const auto& instr : astContext.getInstructions()) {
-        buildAlgoFromInstruction(instr, algo, namer);
-    }
+    auto filtered = filterInstrs(astContext.getInstructions());
+    InstructionsPrinter::printInstructionsScheme(filtered);
+    buildAlgoFromInstructions(filtered, &algo, nullptr, namer, 0);
 
     // rootBlock.dims = std::to_string(rootBlock.args.size());
     // algo.addBlock(rootBlock);
@@ -52,181 +52,257 @@ AlgoInfo AlgoGenerator::generate() {
     return algo;
 }
 
-void AlgoGenerator::buildAlgoFromInstruction(const Instruction& instr, AlgoInfo& algo, IteratorNamer& namer) {
-    if (instr.type == InstructionType::FOR_LOOP) {
-        const auto& loopInfo = std::get<LoopInfo>(instr.data);
+std::vector<Instruction> AlgoGenerator::filterInstrs(const std::vector<Instruction>& instrs) {
+    std::vector<Instruction> filtered_instrs;
+    for (auto& instr : instrs) {
+        switch (instr.type) {
+            case InstructionType::ASSIGNMENT:
+                filtered_instrs.push_back(instr);
+                break;
 
-        int thisBlockId = nextBlockId++;
-        Block nestedBlock(std::to_string(thisBlockId), "0");
+            case InstructionType::FOR_LOOP: {
+                // склонируем LoopInfo, но его тело тоже фильтруем
+                LoopInfo L = std::get<LoopInfo>(instr.data);
+                L.body.instructions = filterInstrs(L.body.instructions);
+                Instruction copy;
+                copy.type = InstructionType::FOR_LOOP;
+                copy.data = std::move(L);
+                filtered_instrs.push_back(std::move(copy));
+                break;
+            }
 
-        currentBlockPath.push_back(thisBlockId);
+            case InstructionType::BLOCK:
+            case InstructionType::PROGRAM:
+            case InstructionType::MAIN_FUNC: {
+                // из обёрток «разворачиваем» вложенность сразу
+                const auto& sc = std::get<ScopedBlock>(instr.data);
+                auto nested = filterInstrs(sc.instructions);
+                // вносим их прямо на уровень выше
+                filtered_instrs.insert(filtered_instrs.end(), std::make_move_iterator(nested.begin()),
+                                       std::make_move_iterator(nested.end()));
+                break;
+            }
 
-        for (const auto& [itName, startVal] : loopInfo.itName_startVal) {
-            nestedBlock.addArg(Arg(namer.next(), "0.." + itName));
-        }
-
-        buildAlgoFromInstructions(loopInfo.body.instructions, nestedBlock, namer);
-
-        nestedBlock.dims = std::to_string(nestedBlock.args.size());
-
-        algo.addBlock(nestedBlock);
-
-        currentBlockPath.pop_back();
-
-    } else if (instr.type == InstructionType::ASSIGNMENT) {
-        const auto& assignInfo = std::get<AssignmentInfo>(instr.data);
-
-        auto tablePtr = observer.getTableByAssignmentId(assignInfo.id);
-        // if (!tablePtr || !tablePtr->showsDepends)
-        //     return;
-
-        int assignBlockId = nextBlockId++;
-        Block assignBlock(std::to_string(assignBlockId), "0");
-
-        tableIdToBlockPath[assignInfo.id] = currentBlockPath;
-        tableIdToBlockPath[assignInfo.id].push_back(assignBlockId);
-
-        for (const auto& row : tablePtr->rows) {
-            processRow(row, assignBlock, namer);
-        }
-
-        algo.addBlock(assignBlock);
-
-    } else if (instr.type == InstructionType::BLOCK || instr.type == InstructionType::PROGRAM ||
-               instr.type == InstructionType::MAIN_FUNC) {
-        const auto& scoped = std::get<ScopedBlock>(instr.data);
-        for (const auto& innerInstr : scoped.instructions) {
-            buildAlgoFromInstruction(innerInstr, algo, namer);
+            default:
+                // IF_STATEMENT и всё остальное — игнорируем
+                break;
         }
     }
+    return filtered_instrs;
+}
+
+// возвращает пару: (число подряд вложенных for), указатель на самый глубокий LoopInfo
+std::pair<int, const LoopInfo*> AlgoGenerator::computeLevels(const LoopInfo& loop) {
+    const LoopInfo* cur = &loop;
+    int levels = 0;
+
+    while (true) {
+        levels++;
+        if (cur->body.instructions.size() != 1)
+            break;
+        const Instruction& only = cur->body.instructions[0];
+        if (only.type != InstructionType::FOR_LOOP)
+            break;
+        cur = &std::get<LoopInfo>(only.data);
+    }
+    return {levels, cur};
 }
 
 void AlgoGenerator::buildAlgoFromInstructions(const std::vector<Instruction>& instrs,
-                                              Block& currentBlock,
-                                              IteratorNamer& namer) {
-    for (const auto& instr : instrs) {
-        if (instr.type == InstructionType::FOR_LOOP) {
-            const auto& loopInfo = std::get<LoopInfo>(instr.data);
+                                              AlgoInfo* algo,
+                                              Block* parentBlock,
+                                              IteratorNamer& namer,
+                                              int depth) {
+    for (size_t idx = 0; idx < instrs.size(); idx++) {
+        const auto& instr = instrs[idx];
 
-            int thisBlockId = nextBlockId++;
-            Block nestedBlock(std::to_string(thisBlockId), "0");
+        switch (instr.type) {
+            case InstructionType::FOR_LOOP: {
+                const auto& L = std::get<LoopInfo>(instr.data);
 
-            // добавляем в путь
-            currentBlockPath.push_back(thisBlockId);
+                auto [levels, deepest] = computeLevels(L);
 
-            for (const auto& [itName, startVal] : loopInfo.itName_startVal) {
-                nestedBlock.addArg(Arg(namer.next(), "0.." + itName));  // Пока диапазон фиктивный
+                // idx += levels - 1;
+
+                int bid = nextBlockId++;
+                std::cerr << std::endl << "id" << bid << "levs" << levels << std::endl;
+                Block blk(std::to_string(bid), std::to_string(levels));
+                currentBlockPath.push_back(bid);
+
+                for (int i = 0; i < levels; i++) {
+                    std::string argName = namer.nameAt(depth, i);
+                    blk.addArg(Arg(argName, "0..0"));
+                }
+                blk.dims = std::to_string(blk.args.size());
+
+                buildAlgoFromInstructions(deepest->body.instructions,
+                                          /*algo=*/nullptr,
+                                          /*parentBlock=*/&blk, namer, depth + 1);
+
+                currentBlockPath.pop_back();
+
+                if (algo)
+                    algo->addBlock(std::move(blk));
+                else
+                    parentBlock->addNestedBlock(std::move(blk));
+
+                break;
             }
 
-            buildAlgoFromInstructions(loopInfo.body.instructions, nestedBlock, namer);
+            case InstructionType::ASSIGNMENT: {
+                const auto& A = std::get<AssignmentInfo>(instr.data);
+                auto tbl = observer.getTableByAssignmentId(A.id);
+                if (!tbl)
+                    break;
 
-            // выходим из пути
-            // currentBlockPath.pop_back();
+                bool hasNeighbors = (instrs.size() > 1);
+                // на 0-вом уровне вложенности нужно делать блок размерности 1
+                if (hasNeighbors && depth != 0) {
+                    int abid = nextBlockId++;
+                    Block aBlk(std::to_string(abid), "0");
+                    tableIdToBlockPath[A.id] = currentBlockPath;
+                    tableIdToBlockPath[A.id].push_back(abid);
 
-            nestedBlock.dims = std::to_string(nestedBlock.args.size());
-
-            currentBlock.addNestedBlock(nestedBlock);
-
-            currentBlockPath.pop_back();
-
-        } else if (instr.type == InstructionType::ASSIGNMENT) {
-            const auto& assignInfo = std::get<AssignmentInfo>(instr.data);
-
-            auto tablePtr = observer.getTableByAssignmentId(assignInfo.id);
-            // if (!tablePtr || !tablePtr->showsDepends)
-            //     return;
-
-            int assignBlockId = nextBlockId++;
-            Block assignBlock(std::to_string(assignBlockId), "0");
-
-            tableIdToBlockPath[assignInfo.id] = currentBlockPath;
-            tableIdToBlockPath[assignInfo.id].push_back(assignBlockId);
-
-            for (const auto& row : tablePtr->rows) {
-                processRow(row, assignBlock, namer);
+                    for (auto& row : tbl->rows)
+                        processRow(row, aBlk, namer);
+                    if (algo)
+                        algo->addBlock(std::move(aBlk));
+                    else
+                        parentBlock->addNestedBlock(std::move(aBlk));
+                } else {
+                    for (auto& row : tbl->rows) {
+                        if (parentBlock) {
+                            processRow(row, *parentBlock, namer);
+                        } else {
+                            int soloId = nextBlockId++;
+                            Block solo(std::to_string(soloId), "1");
+                            solo.addArg(Arg("i", "0..0"));
+                            tableIdToBlockPath[A.id] = currentBlockPath;
+                            tableIdToBlockPath[A.id].push_back(soloId);
+                            processRow(row, solo, namer);
+                            algo->addBlock(std::move(solo));
+                        }
+                    }
+                }
+                break;
             }
-
-            currentBlock.addNestedBlock(assignBlock);
-
-        } else if (instr.type == InstructionType::BLOCK || instr.type == InstructionType::PROGRAM ||
-                   instr.type == InstructionType::MAIN_FUNC) {
-            const auto& scoped = std::get<ScopedBlock>(instr.data);
-            buildAlgoFromInstructions(scoped.instructions, currentBlock, namer);
+            default:
+                break;
         }
     }
 }
 
+// void AlgoGenerator::buildAlgoFromInstruction(const Instruction& instr, AlgoInfo& algo, IteratorNamer&
+// namer) {
+//     if (instr.type == InstructionType::FOR_LOOP) {
+//         const auto& loopInfo = std::get<LoopInfo>(instr.data);
+
+//         int thisBlockId = nextBlockId++;
+//         Block nestedBlock(std::to_string(thisBlockId), "0");
+
+//         currentBlockPath.push_back(thisBlockId);
+
+//         for (const auto& [itName, startVal] : loopInfo.itName_startVal) {
+//             nestedBlock.addArg(Arg(namer.next(), "0.." + itName));
+//         }
+
+//         buildAlgoFromInstructions(loopInfo.body.instructions, nestedBlock, namer);
+
+//         nestedBlock.dims = std::to_string(nestedBlock.args.size());
+
+//         algo.addBlock(nestedBlock);
+
+//         currentBlockPath.pop_back();
+
+//     } else if (instr.type == InstructionType::ASSIGNMENT) {
+//         const auto& assignInfo = std::get<AssignmentInfo>(instr.data);
+
+//         auto tablePtr = observer.getTableByAssignmentId(assignInfo.id);
+//         // if (!tablePtr || !tablePtr->showsDepends)
+//         //     return;
+
+//         int assignBlockId = nextBlockId++;
+//         Block assignBlock(std::to_string(assignBlockId), "0");
+
+//         tableIdToBlockPath[assignInfo.id] = currentBlockPath;
+//         tableIdToBlockPath[assignInfo.id].push_back(assignBlockId);
+
+//         for (const auto& row : tablePtr->rows) {
+//             processRow(row, assignBlock, namer);
+//         }
+
+//         algo.addBlock(assignBlock);
+
+//     } else if (instr.type == InstructionType::BLOCK || instr.type == InstructionType::PROGRAM ||
+//                instr.type == InstructionType::MAIN_FUNC) {
+//         const auto& scoped = std::get<ScopedBlock>(instr.data);
+//         for (const auto& innerInstr : scoped.instructions) {
+//             buildAlgoFromInstruction(innerInstr, algo, namer);
+//         }
+//     }
+// }
+
 // void AlgoGenerator::buildAlgoFromInstructions(const std::vector<Instruction>& instrs,
-//                                               AlgoInfo& algo,
+//                                               Block& currentBlock,
 //                                               IteratorNamer& namer) {
-//     Block* currentLoopBlock = nullptr;
-
-//     for (size_t idx = 0; idx < instrs.size(); ++idx) {
-//         const auto& instr = instrs[idx];
-
+//     for (const auto& instr : instrs) {
 //         if (instr.type == InstructionType::FOR_LOOP) {
-//             const bool nextIsForLoop =
-//                 (idx + 1 < instrs.size() && instrs[idx + 1].type == InstructionType::FOR_LOOP);
-
-//             if (!currentLoopBlock) {
-//                 int blockId = nextBlockId++;
-//                 currentLoopBlock = new Block(std::to_string(blockId), "1");
-
-//                 // сохраняем путь вложенности
-//                 currentBlockPath.push_back(blockId);
-//             } else if (!nextIsForLoop) {
-//                 // если следующий не for_loop — пора будет закончить цепочку
-//             }
-
-//             // добавляем итератор
 //             const auto& loopInfo = std::get<LoopInfo>(instr.data);
-//             for (const auto& [itName, _] : loopInfo.itName_startVal) {
-//                 currentLoopBlock->addArg(Arg(namer.next(), "0.." + itName));
+
+//             int thisBlockId = nextBlockId++;
+//             Block nestedBlock(std::to_string(thisBlockId), "0");
+
+//             // добавляем в путь
+//             currentBlockPath.push_back(thisBlockId);
+
+//             for (const auto& [itName, startVal] : loopInfo.itName_startVal) {
+//                 nestedBlock.addArg(Arg(namer.next(), "0.." + itName));  // Пока диапазон фиктивный
 //             }
 
-//             buildAlgoFromInstructions(loopInfo.body.instructions, *currentLoopBlock, namer);
+//             buildAlgoFromInstructions(loopInfo.body.instructions, nestedBlock, namer);
 
-//             if (!nextIsForLoop) {
-//                 // завершаем цепочку вложенных циклов
-//                 currentLoopBlock->dims = std::to_string(currentLoopBlock->args.size());
-//                 algo.addBlock(*currentLoopBlock);
-//                 delete currentLoopBlock;
-//                 currentLoopBlock = nullptr;
+//             // выходим из пути
+//             // currentBlockPath.pop_back();
 
-//                 currentBlockPath.pop_back();
-//             }
+//             nestedBlock.dims = std::to_string(nestedBlock.args.size());
+
+//             currentBlock.addNestedBlock(nestedBlock);
+
+//             currentBlockPath.pop_back();
+
 //         } else if (instr.type == InstructionType::ASSIGNMENT) {
 //             const auto& assignInfo = std::get<AssignmentInfo>(instr.data);
-//             auto tablePtr = observer.getTableByAssignmentId(assignInfo.id);
-//             if (!tablePtr)
-//                 continue;
 
-//             // создаём отдельный блок для этого assignment
-//             int blockId = nextBlockId++;
-//             Block assignBlock(std::to_string(blockId), "0");
+//             auto tablePtr = observer.getTableByAssignmentId(assignInfo.id);
+//             // if (!tablePtr || !tablePtr->showsDepends)
+//             //     return;
+
+//             int assignBlockId = nextBlockId++;
+//             Block assignBlock(std::to_string(assignBlockId), "0");
 
 //             tableIdToBlockPath[assignInfo.id] = currentBlockPath;
-//             tableIdToBlockPath[assignInfo.id].push_back(blockId);
+//             tableIdToBlockPath[assignInfo.id].push_back(assignBlockId);
 
 //             for (const auto& row : tablePtr->rows) {
 //                 processRow(row, assignBlock, namer);
 //             }
 
-//             algo.addBlock(assignBlock);
+//             currentBlock.addNestedBlock(assignBlock);
+
 //         } else if (instr.type == InstructionType::BLOCK || instr.type == InstructionType::PROGRAM ||
 //                    instr.type == InstructionType::MAIN_FUNC) {
 //             const auto& scoped = std::get<ScopedBlock>(instr.data);
-//             buildAlgoFromInstructions(scoped.instructions, algo, namer);
+//             buildAlgoFromInstructions(scoped.instructions, currentBlock, namer);
 //         }
 //     }
 // }
 
 void AlgoGenerator::processRow(const TableRow& row, Block& block, IteratorNamer& namer) {
     std::ostringstream condition;
-    for (size_t idx = 0; idx < row.iters.size(); ++idx) {
+    for (size_t idx = 0; idx < row.iters.size(); idx++) {
         if (idx > 0)
             condition << " and ";
-        condition << namer.getName(idx) << " == " << row.iters[idx];
+        condition << namer.nameAt(0, idx) << " == " << row.iters[idx];
     }
 
     Vertex vertex(condition.str(), "1");
