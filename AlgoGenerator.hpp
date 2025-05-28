@@ -16,7 +16,7 @@ class AlgoGenerator {
     const Observer& observer;
     const ASTContext& astContext;
     int nextBlockId = 0;
-    std::unordered_map<int, std::vector<int>> tableIdToBlockPath;
+    std::unordered_map<int, std::vector<int>> tableIdToBlockPath;  // id <-> path (list of ids)
     std::vector<int> currentBlockPath;
     Block* currentLoopBlock = nullptr;
     Block* currentAssignmentBlock = nullptr;
@@ -34,6 +34,6 @@ class AlgoGenerator {
     std::vector<Instruction> filterInstrs(const std::vector<Instruction>& instrs);
     std::pair<int, const LoopInfo*> computeLevels(const LoopInfo& loop);
 
-    void processRow(const TableRow& row, Block& block, IteratorNamer& namer);
+    void processRow(const TableRow& row, Block& block, IteratorNamer& namer, int type);
     // std::vector<Arg> generateArgsFromTable(const Table& table, IteratorNamer& namer);
 };

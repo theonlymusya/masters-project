@@ -13,9 +13,11 @@ void AlgoGenerator::markNeededTables() {
         for (const auto& row : tablePtr->rows) {
             if (!row.sources.empty()) {
                 tablePtr->showsDepends = true;
+                tablePtr->verticiesType = 1;
                 break;
             }
         }
+        std::cout << "Table id:" << id << "Deps: " << tablePtr->showsDepends << std::endl;
     }
 
     // Теперь проходим ещё раз — отмечаем таблицы, на которые ссылаются другие
@@ -31,15 +33,19 @@ void AlgoGenerator::markNeededTables() {
                 }
             }
         }
+        std::cout << "Table id:" << id << "Deps: " << tablePtr->showsDepends << std::endl;
     }
 }
 
-// 1. bsrc - найти при предварительном обходе
-// 2. i j k лучше брать изминмаксных в таблице, я думаю, чтобы лишних итераций не было
-// warning если оператор присваивания вне цикла лежит ему нужен arg 0..0
+// to do
+// 1. i j k лучше брать из минмаксных в таблице, я думаю, чтобы лишних итераций не было
+// 2. починить поиск источника для скалярной переменной
+// done: bsrc - найти при предварительном обходе
+// done: сделать отметки таблиц, которые нужно печатать (+дать им тим вершин)
+// done: warning если оператор присваивания вне цикла лежит ему нужен arg 0..0
 AlgoInfo AlgoGenerator::generate() {
     AlgoInfo algo;
-    // markNeededTables();
+    markNeededTables();
 
     IteratorNamer namer;
     auto filtered = filterInstrs(astContext.getInstructions());
@@ -125,7 +131,6 @@ void AlgoGenerator::buildAlgoFromInstructions(const std::vector<Instruction>& in
                 // idx += levels - 1;
 
                 int bid = nextBlockId++;
-                std::cerr << std::endl << "id" << bid << "levs" << levels << std::endl;
                 Block blk(std::to_string(bid), std::to_string(levels));
                 currentBlockPath.push_back(bid);
 
@@ -152,38 +157,56 @@ void AlgoGenerator::buildAlgoFromInstructions(const std::vector<Instruction>& in
             case InstructionType::ASSIGNMENT: {
                 const auto& A = std::get<AssignmentInfo>(instr.data);
                 auto tbl = observer.getTableByAssignmentId(A.id);
-                if (!tbl)
+                std::cout << "Ass ID " << A.id << std::endl;
+
+                if (!tbl || !tbl->showsDepends)
                     break;
+                std::cout << "Ass ID " << A.id << std::endl;
 
                 bool hasNeighbors = (instrs.size() > 1);
-                // на 0-вом уровне вложенности нужно делать блок размерности 1
-                if (hasNeighbors && depth != 0) {
+
+                if (hasNeighbors && parentBlock) {
                     int abid = nextBlockId++;
                     Block aBlk(std::to_string(abid), "0");
+
                     tableIdToBlockPath[A.id] = currentBlockPath;
                     tableIdToBlockPath[A.id].push_back(abid);
 
+                    // std::cout << "ID: " << abid << "PATH: ";
+                    // for (auto it : currentBlockPath)
+                    //     std::cout << it << "::";
+                    // std::cout << std::endl;
+
                     for (auto& row : tbl->rows)
-                        processRow(row, aBlk, namer);
+                        processRow(row, aBlk, namer, tbl->verticiesType);
+
                     if (algo)
                         algo->addBlock(std::move(aBlk));
                     else
                         parentBlock->addNestedBlock(std::move(aBlk));
+
+                } else if (parentBlock) {
+                    tableIdToBlockPath[A.id] = currentBlockPath;
+
+                    for (auto& row : tbl->rows)
+                        processRow(row, *parentBlock, namer, tbl->verticiesType);
+
+                    // на 0-вом уровне вложенности нужно делать блок размерности 1
                 } else {
-                    for (auto& row : tbl->rows) {
-                        if (parentBlock) {
-                            processRow(row, *parentBlock, namer);
-                        } else {
-                            int soloId = nextBlockId++;
-                            Block solo(std::to_string(soloId), "1");
-                            solo.addArg(Arg("i", "0..0"));
-                            tableIdToBlockPath[A.id] = currentBlockPath;
-                            tableIdToBlockPath[A.id].push_back(soloId);
-                            processRow(row, solo, namer);
-                            algo->addBlock(std::move(solo));
-                        }
-                    }
+                    int soloId = nextBlockId++;
+                    Block solo(std::to_string(soloId), "1");
+
+                    solo.addArg(Arg("i", "0..0"));
+
+                    tableIdToBlockPath[A.id] = currentBlockPath;
+                    tableIdToBlockPath[A.id].push_back(soloId);
+
+                    for (auto& row : tbl->rows)
+                        processRow(row, solo, namer, tbl->verticiesType);
+
+                    algo->addBlock(std::move(solo));
                 }
+
                 break;
             }
             default:
@@ -192,112 +215,7 @@ void AlgoGenerator::buildAlgoFromInstructions(const std::vector<Instruction>& in
     }
 }
 
-// void AlgoGenerator::buildAlgoFromInstruction(const Instruction& instr, AlgoInfo& algo, IteratorNamer&
-// namer) {
-//     if (instr.type == InstructionType::FOR_LOOP) {
-//         const auto& loopInfo = std::get<LoopInfo>(instr.data);
-
-//         int thisBlockId = nextBlockId++;
-//         Block nestedBlock(std::to_string(thisBlockId), "0");
-
-//         currentBlockPath.push_back(thisBlockId);
-
-//         for (const auto& [itName, startVal] : loopInfo.itName_startVal) {
-//             nestedBlock.addArg(Arg(namer.next(), "0.." + itName));
-//         }
-
-//         buildAlgoFromInstructions(loopInfo.body.instructions, nestedBlock, namer);
-
-//         nestedBlock.dims = std::to_string(nestedBlock.args.size());
-
-//         algo.addBlock(nestedBlock);
-
-//         currentBlockPath.pop_back();
-
-//     } else if (instr.type == InstructionType::ASSIGNMENT) {
-//         const auto& assignInfo = std::get<AssignmentInfo>(instr.data);
-
-//         auto tablePtr = observer.getTableByAssignmentId(assignInfo.id);
-//         // if (!tablePtr || !tablePtr->showsDepends)
-//         //     return;
-
-//         int assignBlockId = nextBlockId++;
-//         Block assignBlock(std::to_string(assignBlockId), "0");
-
-//         tableIdToBlockPath[assignInfo.id] = currentBlockPath;
-//         tableIdToBlockPath[assignInfo.id].push_back(assignBlockId);
-
-//         for (const auto& row : tablePtr->rows) {
-//             processRow(row, assignBlock, namer);
-//         }
-
-//         algo.addBlock(assignBlock);
-
-//     } else if (instr.type == InstructionType::BLOCK || instr.type == InstructionType::PROGRAM ||
-//                instr.type == InstructionType::MAIN_FUNC) {
-//         const auto& scoped = std::get<ScopedBlock>(instr.data);
-//         for (const auto& innerInstr : scoped.instructions) {
-//             buildAlgoFromInstruction(innerInstr, algo, namer);
-//         }
-//     }
-// }
-
-// void AlgoGenerator::buildAlgoFromInstructions(const std::vector<Instruction>& instrs,
-//                                               Block& currentBlock,
-//                                               IteratorNamer& namer) {
-//     for (const auto& instr : instrs) {
-//         if (instr.type == InstructionType::FOR_LOOP) {
-//             const auto& loopInfo = std::get<LoopInfo>(instr.data);
-
-//             int thisBlockId = nextBlockId++;
-//             Block nestedBlock(std::to_string(thisBlockId), "0");
-
-//             // добавляем в путь
-//             currentBlockPath.push_back(thisBlockId);
-
-//             for (const auto& [itName, startVal] : loopInfo.itName_startVal) {
-//                 nestedBlock.addArg(Arg(namer.next(), "0.." + itName));  // Пока диапазон фиктивный
-//             }
-
-//             buildAlgoFromInstructions(loopInfo.body.instructions, nestedBlock, namer);
-
-//             // выходим из пути
-//             // currentBlockPath.pop_back();
-
-//             nestedBlock.dims = std::to_string(nestedBlock.args.size());
-
-//             currentBlock.addNestedBlock(nestedBlock);
-
-//             currentBlockPath.pop_back();
-
-//         } else if (instr.type == InstructionType::ASSIGNMENT) {
-//             const auto& assignInfo = std::get<AssignmentInfo>(instr.data);
-
-//             auto tablePtr = observer.getTableByAssignmentId(assignInfo.id);
-//             // if (!tablePtr || !tablePtr->showsDepends)
-//             //     return;
-
-//             int assignBlockId = nextBlockId++;
-//             Block assignBlock(std::to_string(assignBlockId), "0");
-
-//             tableIdToBlockPath[assignInfo.id] = currentBlockPath;
-//             tableIdToBlockPath[assignInfo.id].push_back(assignBlockId);
-
-//             for (const auto& row : tablePtr->rows) {
-//                 processRow(row, assignBlock, namer);
-//             }
-
-//             currentBlock.addNestedBlock(assignBlock);
-
-//         } else if (instr.type == InstructionType::BLOCK || instr.type == InstructionType::PROGRAM ||
-//                    instr.type == InstructionType::MAIN_FUNC) {
-//             const auto& scoped = std::get<ScopedBlock>(instr.data);
-//             buildAlgoFromInstructions(scoped.instructions, currentBlock, namer);
-//         }
-//     }
-// }
-
-void AlgoGenerator::processRow(const TableRow& row, Block& block, IteratorNamer& namer) {
+void AlgoGenerator::processRow(const TableRow& row, Block& block, IteratorNamer& namer, int type) {
     std::ostringstream condition;
     for (size_t idx = 0; idx < row.iters.size(); idx++) {
         if (idx > 0)
@@ -305,7 +223,7 @@ void AlgoGenerator::processRow(const TableRow& row, Block& block, IteratorNamer&
         condition << namer.nameAt(0, idx) << " == " << row.iters[idx];
     }
 
-    Vertex vertex(condition.str(), "1");
+    Vertex vertex(condition.str(), std::to_string(type));
 
     for (const auto& src : row.sources) {
         std::vector<std::string> bsrcVec;
