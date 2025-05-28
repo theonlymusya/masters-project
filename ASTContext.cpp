@@ -330,6 +330,10 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
         lhsIndices.push_back((int)idxVal);
         lhsIndexStr << "[" << (int)idxVal << "]";
     }
+    // если переменная скалярная
+    if (lhsIndices.empty()) {
+        lhsIndices.push_back(0);
+    }
     std::cout << info.leftVar.name << lhsIndexStr.str() << " = ";
 
     // 3. Вычисляем и выводим индексные значения всех переменных справа
@@ -359,6 +363,10 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
             row.iters.push_back(frame.value);
         if ((int)row.iters.size() != tablePtr->dim) {
             std::cerr << "[WARNING] Несовпадение размеров итераторов и dim таблицы!\n";
+        }
+        // если скаляр
+        if (row.iters.empty()) {
+            row.iters.push_back(0);
         }
         row.LHSVarIdx = std::move(lhsIndices);
 
