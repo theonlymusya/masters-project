@@ -32,7 +32,7 @@ class AlgoGenerator {
                                    IteratorNamer& namer,
                                    int depth);
     std::vector<Instruction> filterInstrs(const std::vector<Instruction>& instrs);
-    std::pair<int, const LoopInfo*> computeLevels(const LoopInfo& loop);
+    std::vector<const LoopInfo*> computeChain(const LoopInfo& loop);
 
     void processRow(const TableRow& row, Block& block, IteratorNamer& namer, int type);
     // std::vector<Arg> generateArgsFromTable(const Table& table, IteratorNamer& namer);

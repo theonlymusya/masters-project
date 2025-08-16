@@ -18,7 +18,7 @@ std::string AlgoInfo::join(const std::vector<std::string>& vec, const std::strin
 void AlgoInfo::print(const AlgoInfo& algo) {
     std::cout << "<algo>\n";
 
-    printParams(algo.getParams(), 1);
+    // printParams(algo.getParams(), 1);
     for (const auto& block : algo.getBlocks()) {
         printBlock(block, 1);
     }

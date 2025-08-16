@@ -5,6 +5,51 @@ void InstructionsPrinter::printAST(const std::vector<Instruction>& instrs) {
     printInstructionList(instrs, 0);
 }
 
+void InstructionsPrinter::printInstructionsScheme(const std::vector<Instruction>& instrs, int depth) {
+    std::string indent(depth * 2, ' ');
+
+    for (const auto& instr : instrs) {
+        switch (instr.type) {
+            case InstructionType::FOR_LOOP:
+                std::cout << indent << "FOR_LOOP\n";
+                printInstructionsScheme(std::get<LoopInfo>(instr.data).body.instructions, depth + 1);
+                break;
+            case InstructionType::ASSIGNMENT:
+                std::cout << indent << "ASSIGNMENT\n";
+                break;
+            case InstructionType::IF_STATEMENT: {
+                std::cout << indent << "IF_STATEMENT\n";
+                const auto& ifStmt = std::get<IfStatement>(instr.data);
+                // заходи в then-блок
+                printInstructionsScheme(ifStmt.thenBlock.instructions, depth + 1);
+                // заходи в else-if’ы, если нужно
+                for (const auto& elif : ifStmt.elseIfBranches) {
+                    std::cout << indent << "ELSE_IF_STATEMENT\n";
+                    printInstructionsScheme(elif.block.instructions, depth + 1);
+                }
+                // и в else-блок
+                if (!ifStmt.elseBlock.instructions.empty()) {
+                    std::cout << indent << "ELSE_STATEMENT\n";
+                    printInstructionsScheme(ifStmt.elseBlock.instructions, depth + 1);
+                }
+                break;
+            }
+            case InstructionType::BLOCK:
+                std::cout << indent << "BLOCK\n";
+                printInstructionsScheme(std::get<ScopedBlock>(instr.data).instructions, depth + 1);
+                break;
+            case InstructionType::MAIN_FUNC:
+                std::cout << indent << "MAIN_FUNC\n";
+                printInstructionsScheme(std::get<ScopedBlock>(instr.data).instructions, depth + 1);
+                break;
+            case InstructionType::PROGRAM:
+                std::cout << indent << "PROGRAM\n";
+                printInstructionsScheme(std::get<ScopedBlock>(instr.data).instructions, depth + 1);
+                break;
+        }
+    }
+}
+
 void InstructionsPrinter::printInstructionList(const std::vector<Instruction>& instrs, int indent) {
     for (const auto& instr : instrs) {
         switch (instr.type) {
@@ -191,4 +236,50 @@ void InstructionsPrinter::printBlock(const Instruction& instr, int indent) {
     std::cout << ind << label << ":\n";
     printScope(scoped.localScope, indent);
     printInstructionList(scoped.instructions, indent + 1);
+}
+
+void InstructionsPrinter::printTable(const Table& table) {
+    std::cout << "schedule  iters   LHS   RHS indices           sources\n";
+    std::cout << "--------  ------  ----  ---------------------  ------------------\n";
+
+    for (const auto& row : table.rows) {
+        // schedule index
+        std::cout << std::setw(8) << row.scheduleIdx << " ";
+
+        // iters (i, j, k)
+        std::ostringstream itersStr;
+        for (int v : row.iters)
+            itersStr << v;
+        std::cout << std::setw(7) << itersStr.str();
+
+        // LHS (индексы переменной слева)
+        std::ostringstream lhsStr;
+        for (int idx : row.LHSVarIdx)
+            lhsStr << idx;
+        std::cout << "  " << std::setw(4) << lhsStr.str();
+
+        // RHS indices
+        std::ostringstream rhsStr;
+        if (!row.RHSVarIdx.empty()) {
+            for (const auto& rhs : row.RHSVarIdx) {
+                for (int idx : rhs)
+                    rhsStr << idx;
+                rhsStr << " ";
+            }
+        }
+        std::cout << "  " << std::setw(22) << rhsStr.str();
+
+        // sources
+        std::ostringstream srcStr;
+        for (const auto& src : row.sources) {
+            srcStr << (src.tableIdx == 0 ? "bsrc" : "src ");
+            srcStr << "(" << src.tableIdx << ", ";
+            for (int val : src.srcTableIters)
+                srcStr << val;
+            srcStr << ") ";
+        }
+        std::cout << "  " << srcStr.str();
+
+        std::cout << "\n";
+    }
 }

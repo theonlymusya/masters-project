@@ -173,7 +173,7 @@ void ASTContext::executeInstructionList(const std::vector<Instruction>& instrs) 
 // };
 
 void ASTContext::executeLoop(const LoopInfo& loop) {
-    std::cout << "[DEBUG] Вызов executeLoop\n";
+    // std::cout << "[DEBUG] Вызов executeLoop\n";
 
     pushScope(loop.body.localScope);
 
@@ -210,6 +210,13 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
     // если такие переменные ещё не в iterStack
     registerIteratorsFromUpdateVal(loop, visibleVarsReadMod);
 
+    // сохраняем стартовые значения
+    if (loop.actualNumericStartValues.empty()) {
+        for (size_t i = iterStackSizeBefore; i < iterStack.size(); i++) {
+            loop.actualNumericStartValues.push_back(iterStack[i].value);
+        }
+    }
+
     // Если вообще нет итераторов → считаем цикл бесконечным for(;;)
     if (iterStack.size() == iterStackSizeBefore) {
         pushIterator("?", -1, true);
@@ -242,6 +249,7 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
 
         // InstructionsPrinter::printScope(visibleVarsReadMod);
 
+        // проблема с обновлением значений итераторов вне заголовка цикла
         for (const auto& [itName, updateVal] : loop.itName_updateVal) {
             double updated = ExpressionCalculator::evaluateWithTinyExpr(updateVal, visibleVarsVal);
 
@@ -258,6 +266,12 @@ void ASTContext::executeLoop(const LoopInfo& loop) {
         }
     }
     popScope();
+    // сохраняем конечные значения
+    if (loop.actualNumericStopValues.empty()) {
+        for (size_t i = iterStackSizeBefore; i < iterStack.size(); i++) {
+            loop.actualNumericStopValues.push_back(iterStack[i].value);
+        }
+    }
     popLastIterators(iterStack.size() - iterStackSizeBefore);
 }
 
@@ -334,7 +348,7 @@ void ASTContext::executeAssignment(const AssignmentInfo& info) {
     if (lhsIndices.empty()) {
         lhsIndices.push_back(0);
     }
-    std::cout << info.leftVar.name << lhsIndexStr.str() << " = ";
+    // std::cout << info.leftVar.name << lhsIndexStr.str() << " = ";
 
     // 3. Вычисляем и выводим индексные значения всех переменных справа
     std::vector<std::vector<int>> rhsIndexValues;
@@ -412,6 +426,7 @@ void ASTContext::executeIfStatement(const IfStatement& ifStmt) {
     double ifCond = ExpressionCalculator::evaluateWithTinyExpr(ifStmt.condition, visibleVarsVal);
     // std::cout << " == " << ifCond << std::endl;
     if (ifCond) {
+        ifStmt.executedBranch = IfBranch::THEN;
         pushScope(ifStmt.thenBlock.localScope);
         executeInstructionList(ifStmt.thenBlock.instructions);
         popScope();
@@ -422,20 +437,25 @@ void ASTContext::executeIfStatement(const IfStatement& ifStmt) {
     visibleVarsReadMod = getAllVisibleVars();
     visibleVarsVal = expr_utils::extractValues(visibleVarsReadMod);
 
+    int idx = 0;
     for (const auto& elif : ifStmt.elseIfBranches) {
         // std::cout << " If cond: " << elif.condition;
         double elifCond = ExpressionCalculator::evaluateWithTinyExpr(elif.condition, visibleVarsVal);
         // std::cout << " == " << elifCond << std::endl;
         if (elifCond) {
+            ifStmt.executedBranch = IfBranch::ELIF;
+            ifStmt.executedElifIndex = idx;
             pushScope(elif.block.localScope);
             executeInstructionList(elif.block.instructions);
             popScope();
             matched = true;
             return;
         }
+        idx++;
     }
 
     if (!matched && !ifStmt.elseBlock.instructions.empty()) {
+        ifStmt.executedBranch = IfBranch::ELSE;
         pushScope(ifStmt.elseBlock.localScope);
         executeInstructionList(ifStmt.elseBlock.instructions);
         popScope();

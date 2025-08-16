@@ -37,6 +37,8 @@ struct LoopInfo {
     std::unordered_map<std::string, std::string> itName_updateVal;
     std::string condition;
     ScopedBlock body;
+    mutable std::vector<int> actualNumericStartValues;
+    mutable std::vector<int> actualNumericStopValues;
 };
 
 struct ElseIfStatement {
@@ -44,11 +46,16 @@ struct ElseIfStatement {
     ScopedBlock block;
 };
 
+enum class IfBranch { THEN = 0, ELIF, ELSE, NONE };
+
 struct IfStatement {
     std::string condition;
     ScopedBlock thenBlock;
     std::vector<ElseIfStatement> elseIfBranches;
     ScopedBlock elseBlock;
+
+    mutable IfBranch executedBranch = IfBranch::NONE;
+    mutable size_t executedElifIndex = 0;
 };
 
 struct IndexedVariable {

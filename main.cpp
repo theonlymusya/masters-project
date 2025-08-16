@@ -69,6 +69,11 @@ int main(int argc, const char* argv[]) {
     AlgoGenerator generator(observer, context);
     AlgoInfo algo = generator.generate();
     algo.print(algo);
+    // после твоих строк:
+    std::ofstream out("output.txt", std::ios::trunc);
+    auto old_buf = std::cout.rdbuf(out.rdbuf());
+    algo.print(algo);          // уедет в файл
+    std::cout.rdbuf(old_buf);  // вернуть обратно консоль
 
     return 0;
 }

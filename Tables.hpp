@@ -23,8 +23,11 @@ class Table {
     std::string targetVar;
     int tableId;
     int dim;
+    int verticiesType = 0;
+    bool showsDepends = false;
 
     std::vector<TableRow> rows;
+    // std::vector<std::pair<int, int>> iterMinsMaxs;
 
     Table(std::string _var, int _id, int _dim) : targetVar(std::move(_var)), tableId(_id), dim(_dim) {}
 
@@ -35,6 +38,7 @@ class Table {
         }
         return nullptr;
     }
+    void addRow(const TableRow& row);
 };
 
 class Schedule {
@@ -70,16 +74,6 @@ class Observer {
     bool hasTableForAssignment(int id) const;
     std::shared_ptr<Table> getTableByAssignmentId(int assignmentId) const;
 
-    const std::vector<std::shared_ptr<MetaNode>>& getProgramTreeRoots() const;
-    std::vector<std::shared_ptr<MetaNode>>& getProgramTreeRootsNonConst();
-
-    void addLoopMeta(const LoopMetaInfo& metaInfo);
-
-    const LoopMetaInfo& getLoopMeta(int loopId) const;
-    LoopMetaInfo& getLoopMetaNonConst(int loopId);
-    void debugPrintMetaTree() const;
-    void debugPrintMetaNode(const std::shared_ptr<MetaNode>& node, int depth) const;
-
     const std::map<int, std::shared_ptr<Table>>& getAllTables() const;
 
     void registerTableForVar(const std::string& var_name, std::shared_ptr<Table> table);
@@ -91,8 +85,5 @@ class Observer {
    private:
     // каждая таблица соответствует оператору присваивания
     std::map<int, std::shared_ptr<Table>> AssignmentId_Table;
-    std::map<int, LoopMetaInfo> loopsInfo;                  // loopId → LoopMetaInfo
     std::unordered_map<std::string, int> scheduleCounters;  // varName → lastScheduleIdx
-
-    std::vector<std::shared_ptr<MetaNode>> programTreeRoots;
 };

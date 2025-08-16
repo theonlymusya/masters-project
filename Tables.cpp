@@ -18,34 +18,6 @@ std::shared_ptr<Table> Observer::getTableByAssignmentId(int assignmentId) const 
     return nullptr;
 }
 
-const std::vector<std::shared_ptr<MetaNode>>& Observer::getProgramTreeRoots() const {
-    return programTreeRoots;
-}
-
-std::vector<std::shared_ptr<MetaNode>>& Observer::getProgramTreeRootsNonConst() {
-    return programTreeRoots;
-}
-
-void Observer::addLoopMeta(const LoopMetaInfo& metaInfo) {
-    loopsInfo[metaInfo.loopId] = metaInfo;
-}
-
-const LoopMetaInfo& Observer::getLoopMeta(int loopId) const {
-    auto it = loopsInfo.find(loopId);
-    if (it == loopsInfo.end()) {
-        throw std::runtime_error("[FATAL] LoopMetaInfo for loopId=" + std::to_string(loopId) + " not found!");
-    }
-    return it->second;
-}
-
-LoopMetaInfo& Observer::getLoopMetaNonConst(int loopId) {
-    auto it = loopsInfo.find(loopId);
-    if (it == loopsInfo.end()) {
-        throw std::runtime_error("[FATAL] LoopMetaInfo for loopId=" + std::to_string(loopId) + " not found!");
-    }
-    return it->second;
-}
-
 const std::map<int, std::shared_ptr<Table>>& Observer::getAllTables() const {
     return AssignmentId_Table;
 }
@@ -67,7 +39,7 @@ std::optional<Src> Observer::findLatestSrc(const std::string& varName,
 
     std::vector<IndexedRow> allRows;
 
-    for (size_t tableIdx = 0; tableIdx < schedule.tables.size(); ++tableIdx) {
+    for (size_t tableIdx = 0; tableIdx < schedule.tables.size(); tableIdx++) {
         const auto& table = schedule.tables[tableIdx];
         for (const auto& row : table->rows) {
             allRows.push_back({row.scheduleIdx, table->tableId, &row});
@@ -88,20 +60,18 @@ std::optional<Src> Observer::findLatestSrc(const std::string& varName,
     return std::nullopt;
 }
 
-void Observer::debugPrintMetaTree() const {
-    for (const auto& root : programTreeRoots) {
-        debugPrintMetaNode(root, 0);
-    }
-}
+void Table::addRow(const TableRow& row) {
+    rows.push_back(row);
 
-void Observer::debugPrintMetaNode(const std::shared_ptr<MetaNode>& node, int depth) const {
-    std::string indent(depth * 2, ' ');
-    if (node->type == MetaNode::NodeType::ForLoop) {
-        std::cout << indent << "FOR_LOOP id=" << node->id << "\n";
-    } else {
-        std::cout << indent << "ASSIGNMENT id=" << node->id << "\n";
-    }
-    for (const auto& child : node->children) {
-        debugPrintMetaNode(child, depth + 1);
-    }
+    // if (iterMinsMaxs.empty()) {
+    //     iterMinsMaxs.resize(row.iters.size());
+    //     for (size_t i = 0; i < row.iters.size(); ++i) {
+    //         iterMinsMaxs[i] = {row.iters[i], row.iters[i]};
+    //     }
+    // }
+
+    // for (size_t i = 0; i < row.iters.size(); ++i) {
+    //     iterMinsMaxs[i].first = std::min(iterMinsMaxs[i].first, row.iters[i]);
+    //     iterMinsMaxs[i].second = std::max(iterMinsMaxs[i].second, row.iters[i]);
+    // }
 }
