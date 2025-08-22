@@ -17,8 +17,8 @@ using namespace antlr4;
 #include <variant>
 
 int main(int argc, const char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+    if (argc < 3) {
+        std::cerr << "Usage: " << argv[0] << " <input_filename> <output_filename>" << std::endl;
         return 1;
     }
 
@@ -70,7 +70,7 @@ int main(int argc, const char* argv[]) {
     AlgoInfo algo = generator.generate();
     algo.print(algo);
     // после твоих строк:
-    std::ofstream out("output.txt", std::ios::trunc);
+    std::ofstream out(argv[2], std::ios::trunc);
     auto old_buf = std::cout.rdbuf(out.rdbuf());
     algo.print(algo);          // уедет в файл
     std::cout.rdbuf(old_buf);  // вернуть обратно консоль
